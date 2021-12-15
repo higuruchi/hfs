@@ -1,8 +1,9 @@
 use clap::Parser;
-use hfs::hfs;
+use hfs::fs;
 
 fn main() {
-    let args = hfs::Args::parse();
-
-    println!("{}", args.config_path)
+    let args = fs::Args::parse();
+    let mut fs = fs::new(args);
+    
+    fs.initialize();
 }
