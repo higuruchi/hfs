@@ -1,9 +1,4 @@
 FROM rust AS builder
-# FROM ubuntu AS builder
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs --profile default | sh
-
-# COPY ./Cargo.toml /src/Cargo.toml
 
 WORKDIR /src
 
@@ -28,4 +23,4 @@ COPY --from=builder /src/image.yaml /etc/image.yaml
 
 WORKDIR /app
 
-CMD ["/app/hfs" "--config-path", "/etc/image.yaml"]
+CMD ["/app/hfs", "--config-path", "/etc/image.yaml"]
