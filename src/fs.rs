@@ -11,6 +11,16 @@ use yaml_rust::{YamlLoader, YamlEmitter, Yaml};
 use std::io::prelude::*;
 use crate::fs::{attr::Attr, data::Data, entry::Entry};
 
+// use fuse::{
+//     Filesystem,
+//     ReplyEntry,
+//     ReplyAttr,
+//     ReplyData,
+//     ReplyDirectory,
+//     Request,
+//     FileAttr
+// };
+
 #[derive(Parser, Debug)]
 #[clap(
     name = "hfs",
@@ -26,7 +36,7 @@ pub struct Args {
 pub struct HFS {
     args: Args,
     hfs_attr: HashMap<i64, Attr>,
-    hfs_entry: HashMap<i64, Entry>,
+    hfs_entry: HashMap<i64, Vec<Entry>>,
     hfs_data: HashMap<i64, Data>
 }
 
@@ -57,23 +67,13 @@ impl HFS {
         let docs = YamlLoader::load_from_str(&config).unwrap();
 
         for node in docs[0].as_vec().unwrap() {
+
             let file_type = match node["node"]["file-type"].as_str().unwrap() {
                 "directory" => FileType::Directory,
                 "text" => FileType::Text,
                 _ => FileType::None
             };
-            let ino = match &node["node"]["ino"] {
-                Yaml::Integer(i) => *i,
-                _ => -1
-            };
-            let data = match &node["node"]["data"] {
-                Yaml::String(s) => s.clone(),
-                _ => String::new()
-            };
-            let parent_ino = match &node["node"]["parent-ino"] {
-                Yaml::Integer(i) => *i,
-                _ => -1
-            };
+
             let files = match &node["node"]["files"] {
                 Yaml::Array(array) => {
                     let mut inos = Vec::new();
@@ -89,44 +89,106 @@ impl HFS {
                 },
                 _ => vec!()
             };
-            let file_name = match &node["node"]["data"] {
+
+            let ino = match &node["node"]["ino"] {
+                Yaml::Integer(i) => *i,
+                _ => -1
+            };
+
+            let parent_ino = match &node["node"]["parent-ino"] {
+                Yaml::Integer(i) => *i,
+                _ => -1
+            };
+
+            let data = match &node["node"]["data"] {
                 Yaml::String(s) => s.clone(),
                 _ => String::new()
             };
-            let attr = attr::new(
-                ino,
-                data.len() as i64
-            );
 
-            self.hfs_attr.insert(ino, attr);
+            let name = match &node["node"]["name"] {
+                Yaml::String(s) => s.clone(),
+                _ => String::new()
+            };
+
+            self.append_attr(ino, data.len() as i64, name);
 
             match file_type {
                 FileType::Directory => {
-                    for child_ino in files {
-                        let entry = entry::new(
-                            ino,
-                            parent_ino,
-                            child_ino,
-                            file_name.clone(),
-                            file_type,
-                        );
-
-                        self.hfs_entry.insert(ino, entry);
-                    }
+                    self.append_entry(ino, parent_ino, files);
                 }
                 FileType::Text => {
-                    let data = data::new(
-                        ino,
-                        data.to_string()
-                    );
-                    
-                    self.hfs_data.insert(ino, data);
+                    self.append_data(ino, data);
                 }
                 FileType::None => {
                     panic!("initialize error");
                 }
-            }
+            }            
         }
         println!("{:?}", self);
     }
+
+    fn append_entry(&mut self, ino: i64, parent_ino: i64, files: Vec<i64>) {
+        for child_ino in files {
+            let entry = entry::new(
+                ino,
+                parent_ino,
+                child_ino
+            );
+
+            match self.hfs_entry.get(&ino) {
+                Some(vec) => {
+                    let mut new_vec = vec.clone();
+                    new_vec.push(entry);
+                    self.hfs_entry.insert(ino, new_vec);
+                },
+                None => {
+                    let mut vec = Vec::new();
+                    vec.push(entry);
+                    self.hfs_entry.insert(ino, vec);
+                }
+            };
+        }
+    }
+
+    fn append_data(&mut self, ino: i64, data: String) {
+        let data = data::new(
+            ino,
+            data.to_string()
+        );
+
+        self.hfs_data.insert(ino, data);
+    }
+
+    fn append_attr(&mut self, ino: i64, size: i64, name: String) {
+        let attr = attr::new(
+            ino,
+            size,
+            name
+        );
+
+        self.hfs_attr.insert(ino, attr);
+    }
 }
+
+
+// impl Filesystem for HFS {
+//     fn lookup(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEntry) {
+
+//         let hfs_attr = self.hfs_attr.get(&)
+//         file_attr = FileAttr {
+//             ino:
+//         }
+//     }
+
+//     fn getattr(&mut self, _req, &request, ino: u64, reply: ReplyAttr) {
+
+//     }
+
+//     fn read(&mut self, _req: &Request, ino: u64, _fh: u64, offset: i64, _size: u32, reply: ReplyData) {
+
+//     }
+
+//     fn readdir(&mut self, _req: &Request, ino: u64, _fh: u64, offset: i64, mut reply: ReplyDirectory) {
+
+//     }
+// }

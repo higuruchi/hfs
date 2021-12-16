@@ -2,6 +2,7 @@
 pub struct Attr {
     pub ino: i64,
     pub size: i64,
+    pub name: String
     // pub blocks: u32,
     // pub atime: SystemTime,
     // pub mtime: SystemTime,
@@ -18,10 +19,12 @@ pub struct Attr {
 
 pub fn new(
     ino: i64,
-    size: i64
+    size: i64,
+    name: String
 ) -> Attr {
     Attr {
         ino: ino,
-        size: size
+        size: size,
+        name: name
     }
 }
