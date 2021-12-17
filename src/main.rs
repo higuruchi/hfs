@@ -1,9 +1,13 @@
 use clap::Parser;
-use hfs::fs;
+use hfs::config;
+use hfs::{di, externalinterface::fuse::Fuse};
 
 fn main() {
-    let args = fs::Args::parse();
-    let mut fs = fs::new(args);
+    let config = config::Config::parse();
+    let fs = match di::initialize(config) {
+        Ok(fs) => fs,
+        Err(()) => panic!("Initialize error")
+    };
     
-    fs.initialize();
+    fs.init();
 }
