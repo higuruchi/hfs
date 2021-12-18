@@ -8,7 +8,7 @@ struct UsecaseStruct<F: repository::File> {
 }
 
 pub trait Usecase {
-    fn init(&self, path: &path::Path) -> Result<(), ()>;
+    fn init(&mut self, path: &path::Path) -> Result<(), ()>;
 }
 
 pub fn new<F>(file_repository: F) -> impl Usecase 
@@ -20,7 +20,7 @@ pub fn new<F>(file_repository: F) -> impl Usecase
 }
 
 impl<F: repository::File> Usecase for UsecaseStruct<F> {
-    fn init(&self, path: &path::Path) -> Result<(), ()> {
+    fn init(&mut self, path: &path::Path) -> Result<(), ()> {
         let file_struct = self.file_repository.init(path);
         return Ok(());
     }

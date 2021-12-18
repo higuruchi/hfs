@@ -8,7 +8,7 @@ struct FuseStruct <C: controller::Controller>{
 
 pub trait Fuse {
     // fn init(&mut self, _req: &Request<'_>) -> Result<(), c_int>;
-    fn init(&self);
+    fn init(&mut self);
 }
 
 pub fn new<C>(config: config::Config, controller: C) -> impl Fuse
@@ -24,7 +24,7 @@ impl<C: controller::Controller> Fuse for FuseStruct<C> {
     // fn init(&mut self, _req: &Request<'_>) -> Result<(), c_int> {
     //     self.controller.init()
     // }
-    fn init(&self) {
-        self.controller.init(String::from("hello world!"));
+    fn init(&mut self) {
+        self.controller.init(String::from("/etc/image.yaml"));
     }
 }

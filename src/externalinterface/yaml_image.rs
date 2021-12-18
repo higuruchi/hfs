@@ -1,19 +1,58 @@
-use std::path;
+extern crate yaml_rust;
 
+use std::path;
+use std::fs::File;
+use std::io::prelude::*;
+use std::collections::HashMap;
+use yaml_rust::{YamlLoader, YamlEmitter, Yaml};
 use crate::interfaceadapter::{
     worker,
+    model,
     model::attr,
     model::data,
     model::entry
 };
 
-struct YAMLImageStruct {}
+#[derive(Debug)]
+struct YAMLImageStruct {
+    entry: path::PathBuf,
+    attr: path::PathBuf,
+    data: path::PathBuf
+}
+
+const ATTR:         &str = "attr";
+const DATA:         &str = "data";
+const ENTRY:        &str = "entry";
+const INO:          &str = "ino";
+const FILE_TYPE:    &str = "file-type";
+const PARENT_INO:   &str = "parent-ino";
+const NAME:         &str = "name";
+const METADATA:     &str = "metadata";
+const USER:         &str = "user";
+const GROUP:        &str = "group";
+const TIME:         &str = "time";
+const FILES:        &str = "files";
+
+const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
+const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
+const DATA_DEFAULT_PATH: &str = "/etc/data.yaml";
 
 pub fn new() -> impl worker::File {
-    YAMLImageStruct{}
+    YAMLImageStruct{
+        attr: path::PathBuf::from(ATTR_DEFAULT_PATH),
+        entry: path::PathBuf::from(ENTRY_DEFAULT_PATH),
+        data: path::PathBuf::from(DATA_DEFAULT_PATH)
+    }
 }
 
 impl worker::File for YAMLImageStruct {
+    fn init(&mut self, path: &path::Path) -> Result<model::FileStruct, ()> {
+        self.load_image(path);
+        let entries = self.load_entry();
+        println!("{:?}", entries);
+        return Err(());
+    }
+
     fn attr_from_ino(&self, path: &path::Path, ino: i64) -> Result<attr::Attr, ()> {
         Ok(attr::new(1, 1, String::from("this is name")))
     }
@@ -24,5 +63,83 @@ impl worker::File for YAMLImageStruct {
 
     fn entry_from_ino(&self, path: &path::Path, ino: i64) -> Result<entry::Entry, ()> {
         Ok(entry::new(1, 1, 1))
+    }
+}
+
+impl YAMLImageStruct {
+    fn load_image(&mut self, path: &path::Path) -> Result<(), ()> {
+        let mut file = match File::open(path) {
+            Ok(file) => file,
+            Err(e) => return Err(())
+        };
+        let mut config = String::new();
+        match file.read_to_string(&mut config) {
+            Ok(_) => {},
+            Err(e) => return Err(())
+        };
+        let docs = match YamlLoader::load_from_str(&config) {
+            Ok(docs) => docs,
+            Err(e) => return Err(())
+        };
+
+        self.attr = match &docs[0][ATTR] {
+            Yaml::String(s) => path::PathBuf::from(s),
+            _ => path::PathBuf::from(ATTR_DEFAULT_PATH)
+        };
+
+        self.entry = match &docs[0][ENTRY] {
+            Yaml::String(s) => path::PathBuf::from(s),
+            _ => path::PathBuf::from(ENTRY_DEFAULT_PATH)
+        };
+
+        self.data = match &docs[0][DATA] {
+            Yaml::String(s) => path::PathBuf::from(s),
+            _ => path::PathBuf::from(DATA_DEFAULT_PATH)
+        };
+
+        return Ok(());
+    }
+
+    fn load_entry(&self) -> Result<HashMap<i64, Vec<entry::Entry>>, ()> {
+        let mut file = match File::open(&self.entry) {
+            Ok(file) => file,
+            Err(e) => return Err(())
+        };
+        let mut config = String::new();
+        match file.read_to_string(&mut config) {
+            Ok(_) => {}
+            Err(e) => return Err(())
+        }
+        let docs = match YamlLoader::load_from_str(&config) {
+            Ok(docs) => docs,
+            Err(e) => return Err(())
+        };
+        let mut entrie_hash = HashMap::new();
+
+        for entry_data in docs[0].as_vec().unwrap() {
+            let mut entries = Vec::new();
+            let ino = match &entry_data[INO] {
+                Yaml::Integer(i) => *i,
+                _ => return Err(())
+            };
+
+            match &entry_data[FILES] {
+                Yaml::Array(child_inos_data) => {
+                    for child_ino_data in child_inos_data {
+                        let child_ino = match child_ino_data {
+                            Yaml::Integer(i) => *i,
+                            _ => -1
+                        };
+
+                        entries.push(entry::new(ino, -1, child_ino));
+                    }
+                },
+                _ => {}
+            }
+
+            entrie_hash.insert(ino, entries);
+        }
+
+        return Ok(entrie_hash);
     }
 }

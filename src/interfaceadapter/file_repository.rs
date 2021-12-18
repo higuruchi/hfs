@@ -16,12 +16,11 @@ pub fn new<F>(file_worker: F) -> impl File
 }
 
 impl<F: worker::File> File for FileRepositoryStruct<F> {
-    fn init(&self, path: &path::Path) -> Result<FileStruct, ()> {
+    fn init(&mut self, path: &path::Path) -> Result<FileStruct, ()> {
         let attr = self.file_worker.attr_from_ino(path, 1);
         let data = self.file_worker.data_from_ino(path, 1);
         let entry = self.file_worker.entry_from_ino(path, 1);
-        println!("here");
-        print!("{:?} {:?} {:?}", attr, data, entry);
+        let files = self.file_worker.init(path);
         return Err(()); 
     }
 }
