@@ -1,16 +1,27 @@
 use std::path;
 use crate::usecase::repository::File;
 use crate::usecase::model::{self, FileStruct};
+use crate::interfaceadapter::{worker};
 
-struct FileRepositoryStruct {}
-
-pub fn new() -> impl File {
-    FileRepositoryStruct{}
+struct FileRepositoryStruct<F: worker::File> {
+    file_worker: F
 }
 
-impl File for FileRepositoryStruct {
+pub fn new<F>(file_worker: F) -> impl File 
+    where F: worker::File
+{
+    FileRepositoryStruct{
+        file_worker: file_worker
+    }
+}
+
+impl<F: worker::File> File for FileRepositoryStruct<F> {
     fn init(&self, path: &path::Path) -> Result<FileStruct, ()> {
-        println!("called file_repository init");
+        let attr = self.file_worker.attr_from_ino(path, 1);
+        let data = self.file_worker.data_from_ino(path, 1);
+        let entry = self.file_worker.entry_from_ino(path, 1);
+        println!("here");
+        print!("{:?} {:?} {:?}", attr, data, entry);
         return Err(()); 
     }
 }
