@@ -1,0 +1,11 @@
+- ino: 0
+  name: root
+  file-type: 0
+
+- ino: 1
+  name: file1
+  file-type: 1
+
+- ino: 2
+  name: directory1
+  file-type: 0
