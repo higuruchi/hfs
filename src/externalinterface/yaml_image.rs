@@ -5,13 +5,13 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::collections::HashMap;
 use yaml_rust::{YamlLoader, YamlEmitter, Yaml};
-use crate::interfaceadapter::{
-    worker,
-    model,
-    model::attr,
-    model::data,
-    model::entry
+use crate::entity::{
+    self,
+    attr,
+    data,
+    entry
 };
+use crate::interfaceadapter::worker;
 
 #[derive(Debug)]
 struct YAMLImageStruct {
@@ -32,6 +32,7 @@ const USER:         &str = "user";
 const GROUP:        &str = "group";
 const TIME:         &str = "time";
 const FILES:        &str = "files";
+const SIZE:         &str = "size";
 
 const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
 const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
@@ -46,11 +47,18 @@ pub fn new() -> impl worker::File {
 }
 
 impl worker::File for YAMLImageStruct {
-    fn init(&mut self, path: &path::Path) -> Result<model::FileStruct, ()> {
+    fn init(&mut self, path: &path::Path) -> Result<entity::FileStruct, ()> {
         self.load_image(path);
-        let entries = self.load_entry();
-        println!("{:?}", entries);
-        return Err(());
+        let entries = match self.load_entry() {
+            Ok(entries) => entries,
+            Err(_) => return Err(())
+        };
+        let attrs = match self.load_attr() {
+            Ok(attrs) => attrs,
+            Err(_) => return Err(())
+        };
+
+        return Ok(entity::new(attrs, entries, HashMap::new()));
     }
 
     fn attr_from_ino(&self, path: &path::Path, ino: i64) -> Result<attr::Attr, ()> {
@@ -141,5 +149,45 @@ impl YAMLImageStruct {
         }
 
         return Ok(entrie_hash);
+    }
+
+    fn load_attr(&self) -> Result<HashMap<i64, attr::Attr>, ()> {
+        let mut file = match File::open(&self.attr) {
+            Ok(file) => file,
+            Err(e) => return Err(())
+        };
+        let mut config = String::new();
+        match file.read_to_string(&mut config) {
+            Ok(_) => {}
+            Err(e) => return Err(())
+        };
+        let docs = match YamlLoader::load_from_str(&config) {
+            Ok(docs) => docs,
+            Err(e) => return Err(())
+        };
+        let mut attrs_hash = HashMap::new();
+        
+        for attr_data in docs[0].as_vec().unwrap() {
+            let ino = match &attr_data[INO] {
+                Yaml::Integer(i) => *i,
+                _ => return Err(())
+            };
+            let name = match &attr_data[NAME] {
+                Yaml::String(s) => s.clone(),
+                _ => return Err(())
+            };
+            let file_type = match &attr_data[FILE_TYPE] {
+                Yaml::Integer(i) => *i,
+                _ => return Err(())
+            };
+            let size = match &attr_data[SIZE] {
+                Yaml::Integer(i) => *i,
+                _ => return Err(())
+            };
+
+            attrs_hash.insert(ino, attr::new(ino, size, name));
+        }
+
+        return Ok(attrs_hash);
     }
 }

@@ -1,11 +1,14 @@
 - ino: 0
   name: root
   file-type: 0
+  size: 2
 
 - ino: 1
   name: file1
   file-type: 1
+  size: 20
 
 - ino: 2
   name: directory1
   file-type: 0
+  size: 0

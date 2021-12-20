@@ -1,6 +1,6 @@
 use std::path;
-use crate::usecase::model::FileStruct;
+use crate::entity;
 
 pub trait File {
-    fn init(&mut self, path: &path::Path) -> Result<FileStruct, ()>;
+    fn init(&mut self, path: &path::Path) -> Result<entity::FileStruct, ()>;
 }

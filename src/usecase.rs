@@ -1,5 +1,4 @@
 pub mod repository;
-pub mod model;
 
 use std::path;
 
