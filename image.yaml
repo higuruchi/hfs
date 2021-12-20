@@ -1,32 +1,3 @@
-- node:
-    ino: 0
-    file-type: directory
-    parent-ino: -1
-    name: root
-    metadata:
-        user: user1
-        group: group1
-        time: 2324
-    files:
-        - 1
-        - 2
-
-- node:
-    ino: 1
-    file-type: text
-    ino: 1
-    parent-ino: 0
-    name: file1
-    metadata:
-        user: user1
-        group: group1
-        time: 234234
-    data: "this is content of file1"
-
-- node:
-    ino: 2
-    file-type: directory
-    parent-ino: 0
-    name: directory1
-    metadata:
-    files:
+entry: /etc/entry.yaml
+data: /etc/data.yaml
+attr: /etc/attr.yaml

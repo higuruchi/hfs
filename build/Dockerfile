@@ -20,6 +20,9 @@ RUN apt update  -y && \
 
 COPY --from=builder /src/target/debug/hfs /app/hfs
 COPY --from=builder /src/image.yaml /etc/image.yaml
+COPY --from=builder /src/attr.yaml /etc/attr.yaml
+COPY --from=builder /src/data.yaml /etc/data.yaml
+COPY --from=builder /src/entry.yaml /etc/entry.yaml
 
 WORKDIR /app
 

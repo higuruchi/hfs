@@ -1,5 +1,3 @@
-use crate::fs;
-
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub ino: i64,
