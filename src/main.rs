@@ -10,4 +10,5 @@ fn main() {
     };
 
     fs.init();
+    fs.lookup();
 }

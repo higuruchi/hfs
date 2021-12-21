@@ -16,3 +16,9 @@ pub fn new(
         child_ino: child_ino
     }
 }
+
+impl Entry {
+    pub fn child_ino(&self) -> i64 {
+        return self.child_ino;
+    }
+}

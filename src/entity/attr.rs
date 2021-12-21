@@ -28,3 +28,9 @@ pub fn new(
         name: name
     }
 }
+
+impl Attr {
+    pub fn name(&self) -> &str {
+        return &self.name;
+    }
+}
