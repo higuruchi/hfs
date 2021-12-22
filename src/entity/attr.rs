@@ -1,7 +1,7 @@
 #[derive(Debug)]
 pub struct Attr {
-    pub ino: i64,
-    pub size: i64,
+    pub ino: u64,
+    pub size: u64,
     pub name: String
     // pub blocks: u32,
     // pub atime: SystemTime,
@@ -18,8 +18,8 @@ pub struct Attr {
 }
 
 pub fn new(
-    ino: i64,
-    size: i64,
+    ino: u64,
+    size: u64,
     name: String
 ) -> Attr {
     Attr {
@@ -30,11 +30,11 @@ pub fn new(
 }
 
 impl Attr {
-    pub fn ino(&self) -> i64 {
+    pub fn ino(&self) -> u64 {
         return self.ino;
     }
 
-    pub fn size(&self) -> i64 {
+    pub fn size(&self) -> u64 {
         return self.size;
     }
 

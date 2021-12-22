@@ -41,7 +41,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             Some(entity) => entity,
             None => return None
         };
-        let entries = match entity.entry(&(parent as i64)) {
+        let entries = match entity.entry(&parent) {
             Some(entries) => entries,
             None => return None
         };
@@ -71,6 +71,6 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             None => return None
         };
 
-        return entity.attr(&(ino as i64));
+        return entity.attr(&ino);
     }
 }

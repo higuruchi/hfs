@@ -6,14 +6,14 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct FileStruct {
-    attr: HashMap<i64, attr::Attr>,
-    entry: HashMap<i64, Vec<entry::Entry>>,
-    data: HashMap<i64, data::Data>
+    attr: HashMap<u64, attr::Attr>,
+    entry: HashMap<u64, Vec<entry::Entry>>,
+    data: HashMap<u64, data::Data>
 }
 
-pub fn new(attr: HashMap<i64, attr::Attr>,
-            entry: HashMap<i64, Vec<entry::Entry>>,
-            data: HashMap<i64, data::Data>
+pub fn new(attr: HashMap<u64, attr::Attr>,
+            entry: HashMap<u64, Vec<entry::Entry>>,
+            data: HashMap<u64, data::Data>
 ) -> FileStruct {
     FileStruct {
         attr: attr,
@@ -23,14 +23,14 @@ pub fn new(attr: HashMap<i64, attr::Attr>,
 }
 
 impl FileStruct {
-    pub fn attr(&self, ino: &i64) -> Option<&attr::Attr> {
+    pub fn attr(&self, ino: &u64) -> Option<&attr::Attr> {
         match self.attr.get(ino) {
             Some(attr) => return Some(attr),
             None => return None
         }
     }
 
-    pub fn entry(&self, ino: &i64) -> Option<&Vec<entry::Entry>> {
+    pub fn entry(&self, ino: &u64) -> Option<&Vec<entry::Entry>> {
         match self.entry.get(ino) {
             Some(entry) => return Some(entry),
             None => return None

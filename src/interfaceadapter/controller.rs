@@ -36,8 +36,8 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         };
 
         return Some(fuse::FileAttr {
-            ino: attr.ino() as u64,
-            size: attr.size() as u64,
+            ino: attr.ino(),
+            size: attr.size(),
             blocks: 0,
             atime: time::Timespec{sec: 1, nsec: 0},
             mtime: time::Timespec{sec: 1, nsec: 0},
@@ -60,8 +60,8 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         };
 
         return Some(fuse::FileAttr {
-            ino: attr.ino() as u64,
-            size: attr.size() as u64,
+            ino: attr.ino(),
+            size: attr.size(),
             blocks: 0,
             atime: time::Timespec{sec: 1, nsec: 0},
             mtime: time::Timespec{sec: 1, nsec: 0},
