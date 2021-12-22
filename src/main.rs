@@ -11,4 +11,5 @@ fn main() {
 
     fs.init();
     fs.lookup();
+    fs.getattr();
 }

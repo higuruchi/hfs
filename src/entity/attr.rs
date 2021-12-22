@@ -30,6 +30,14 @@ pub fn new(
 }
 
 impl Attr {
+    pub fn ino(&self) -> i64 {
+        return self.ino;
+    }
+
+    pub fn size(&self) -> i64 {
+        return self.size;
+    }
+
     pub fn name(&self) -> &str {
         return &self.name;
     }

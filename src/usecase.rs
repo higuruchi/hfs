@@ -13,6 +13,7 @@ struct UsecaseStruct<F: repository::File> {
 pub trait Usecase {
     fn init(&mut self, path: &path::Path) -> Result<(), ()>;
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr>;
+    fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr>;
 }
 
 pub fn new<F>(file_repository: F) -> impl Usecase 
@@ -62,5 +63,14 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         }
 
         return None;
+    }
+
+    fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr> {
+        let entity = match &self.entity {
+            Some(entity) => entity,
+            None => return None
+        };
+
+        return entity.attr(&(ino as i64));
     }
 }

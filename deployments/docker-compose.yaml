@@ -1,6 +1,7 @@
 version: "3.8"
 services:
   hfs:
+    tty: true
     build:
       context: ../
       dockerfile: ./build/Dockerfile
