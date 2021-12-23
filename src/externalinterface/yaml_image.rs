@@ -38,6 +38,9 @@ const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
 const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
 const DATA_DEFAULT_PATH: &str = "/etc/data.yaml";
 
+const DIRECTORY: u64 = 0;
+const TXTFILE: u64 = 1;
+
 pub fn new() -> impl worker::File {
     YAMLImageStruct{
         attr: path::PathBuf::from(ATTR_DEFAULT_PATH),
@@ -62,7 +65,7 @@ impl worker::File for YAMLImageStruct {
     }
 
     fn attr_from_ino(&self, path: &path::Path, ino: u64) -> Result<attr::Attr, ()> {
-        Ok(attr::new(1, 1, String::from("this is name")))
+        Ok(attr::new(1, 1, String::from("this is name"), attr::FileType::Directory))
     }
 
     fn data_from_ino(&self, path: &path::Path, ino: u64) -> Result<data::Data, ()> {
@@ -177,15 +180,23 @@ impl YAMLImageStruct {
                 _ => return Err(())
             };
             let file_type = match &attr_data[FILE_TYPE] {
-                Yaml::Integer(i) => *i as u64,
+                Yaml::Integer(i) =>{
+                    match *i as u64 {
+                        DIRECTORY => attr::FileType::Directory,
+                        TXTFILE => attr::FileType::TextFile,
+                        _ => attr::FileType::TextFile
+                    }
+                },
                 _ => return Err(())
             };
             let size = match &attr_data[SIZE] {
-                Yaml::Integer(i) => *i as u64,
+                Yaml::Integer(i) => {
+                    *i as u64
+                },
                 _ => return Err(())
             };
 
-            attrs_hash.insert(ino, attr::new(ino, size, name));
+            attrs_hash.insert(ino, attr::new(ino, size, name, file_type));
         }
 
         return Ok(attrs_hash);

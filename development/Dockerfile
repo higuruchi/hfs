@@ -1,32 +1,29 @@
-FROM rust AS builder
-
-WORKDIR /src
-
-RUN apt update -y && \
-    apt install fuse -y && \
-    apt install libfuse-dev -y
-
-COPY ./ /src
-
-RUN cargo build
-
-# ------------------------------------
-
 FROM ubuntu:20.04
 
-SHELL ["/bin/bash", "-l", "-c"] 
+# WORKDIR /home/development
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt update -y && \
     apt install fuse -y && \
     apt install libfuse-dev -y && \
-    apt install vim -y
+    apt install vim -y && \
+    apt install curl -y && \
+    apt install git -y && \
+    apt install pkg-config -y tzdata && \
+    apt install sudo -y && \
+    apt install build-essential -y
+    # apt install timedatectl -y
 
-COPY --from=builder /src/target/debug/hfs /app/hfs
-COPY --from=builder /src/image.yaml /etc/image.yaml
-COPY --from=builder /src/attr.yaml /etc/attr.yaml
-COPY --from=builder /src/data.yaml /etc/data.yaml
-COPY --from=builder /src/entry.yaml /etc/entry.yaml
+# RUN timedatectl set-timezone Asia/Tokyo
 
-WORKDIR /app
+COPY ./config /etc/config
 
-CMD ["/bin/bash"]
+RUN adduser --home /home/development --shell /bin/bash --uid 1000 --disabled-login development && \
+    echo "development:hfs_dev_pass" | chpasswd && \
+    gpasswd -a development sudo
+
+USER 1000
+SHELL ["/bin/bash", "-l", "-c"]
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    source $HOME/.cargo/env

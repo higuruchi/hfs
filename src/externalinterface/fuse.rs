@@ -19,6 +19,7 @@ pub trait Fuse {
     fn init(&mut self);
     fn lookup(&self);
     fn getattr(&self);
+    fn readdir(&self);
 }
 
 pub fn new<C>(config: config::Config, controller: C) -> impl Fuse
@@ -51,10 +52,16 @@ impl<C: controller::Controller> Fuse for FuseStruct<C> {
 
     fn lookup(&self) {
         let attr = self.controller.lookup(0, OsStr::new("file1"));
-        println!("{:?}", attr);
+        println!("attr : {:?}", attr);
     }
 
     fn getattr(&self) {
         let attr = self.controller.getattr(1);
+        println!("attr : {:?}", attr);
+    }
+
+    fn readdir(&self) {
+        let entry = self.controller.readdir(0);
+        println!("entry : {:?}", entry);
     }
 }

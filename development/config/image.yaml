@@ -1,0 +1,3 @@
+entry: /etc/config/entry.yaml
+data: /etc/config/data.yaml
+attr: /etc/config/attr.yaml
