@@ -19,10 +19,6 @@ fn main() {
     // fs.lookup();
     // fs.getattr();
 
-    let options = ["-o", "ro", "-o", "fsname=hfs"]
-        .iter()
-        .map(|o| o.as_ref())
-        .collect::<Vec<&OsStr>>();
-
-    fuse::mount(fs, &mountpoint, &options);
+	println!("mounted hfs");
+    fuse::mount(fs, &mountpoint, &[]).expect("failed mount");
 }

@@ -37,11 +37,17 @@ pub fn new<C>(config: config::Config, controller: C) -> impl Filesystem
 
 impl<C: controller::Controller> Filesystem for FuseStruct<C> {
     fn init(&mut self, _req: &Request<'_>) -> Result<(), libc::c_int> {
+
         match self.controller.init(&self.config) {
-            Ok(_) => return Ok(()),
-            Err(_) => {}
-        };
-        return Ok(());
+            Ok(_) => {
+				println!("Initialized!");
+				return Ok(());
+			},
+            Err(_) => {
+				println!("Failed Initialized!");
+				return Err(libc::ENOENT)
+			}
+        }
     }
 
     fn lookup(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEntry){
@@ -53,9 +59,34 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
 
     fn getattr(&mut self, _req: &Request, ino: u64, reply: ReplyAttr) {
         match self.controller.getattr(ino) {
-            Some(attr) => reply.attr(&time::Timespec{sec: 1, nsec: 0}, &attr),
-            None => return reply.error(libc::ENOENT)
+            Some(attr) => {
+				reply.attr(&time::Timespec{sec: 1, nsec: 0}, &attr);
+
+				/*
+				reply.attr(
+					&time::Timespec{sec:1, nsec: 0},
+					&fuse::FileAttr {
+						ino: 1,
+						size: 0,
+						blocks: 0,
+						atime: time::now().to_timespec(),
+						mtime:time::now().to_timespec(),
+						ctime:time::now().to_timespec(),
+						crtime:time::now().to_timespec(),
+						kind: fuse::FileType::Directory,
+						perm: 0x777,
+						nlink: 2,
+						uid: 1000,
+						gid: 1000,
+						rdev: 0,
+						flags: 0 
+					}
+				)
+				*/
+			},
+            None => reply.error(libc::ENOENT)
         }
+		return;
     }
 
     fn readdir(&mut self, _req: &Request, ino: u64, _fh: u64, offset: i64, mut reply: ReplyDirectory) {

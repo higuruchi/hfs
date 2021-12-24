@@ -60,7 +60,9 @@ impl worker::File for YAMLImageStruct {
             Ok(attrs) => attrs,
             Err(_) => return Err(())
         };
-
+		
+		println!("{:?}", entries);
+		println!("{:?}", attrs);
         return Ok(entity::new(attrs, entries, HashMap::new()));
     }
 
@@ -114,8 +116,11 @@ impl YAMLImageStruct {
     fn load_entry(&self) -> Result<HashMap<u64, Vec<entry::Entry>>, ()> {
         let mut file = match File::open(&self.entry) {
             Ok(file) => file,
-            Err(e) => return Err(())
+            Err(e) => {
+				return Err(());
+			}
         };
+
         let mut config = String::new();
         match file.read_to_string(&mut config) {
             Ok(_) => {}

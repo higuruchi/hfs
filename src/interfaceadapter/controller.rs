@@ -26,8 +26,10 @@ pub fn new<U>(usecase: U) -> impl Controller
 
 impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
     fn init(&mut self, config: &String) -> Result<(), ()> {
-        self.usecase.init(&Path::new(config));
-        return Ok(());
+		match self.usecase.init(&Path::new(config)) {
+			Ok(_) => Ok(()),
+			Err(_) => return Err(())
+		}
     }
 
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr> {
@@ -40,15 +42,15 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             ino: attr.ino(),
             size: attr.size(),
             blocks: 0,
-            atime: time::Timespec{sec: 1, nsec: 0},
-            mtime: time::Timespec{sec: 1, nsec: 0},
-            ctime: time::Timespec{sec: 1, nsec: 0},
-            crtime: time::Timespec{sec: 1, nsec: 0},
+            atime: time::now().to_timespec(),
+            mtime: time::now().to_timespec(),
+            ctime: time::now().to_timespec(),
+            crtime: time::now().to_timespec(),
             kind: fuse::FileType::RegularFile,
-            perm: 0,
-            nlink: 0,
-            uid: 0,
-            gid: 0,
+            perm: 0x777,
+            nlink: 2,
+            uid: 1000,
+            gid: 1000,
             rdev: 0,
             flags: 0,
         });
@@ -56,23 +58,31 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
 
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr> {
         let attr = match self.usecase.attr_from_ino(ino) {
-            Some(attr) => attr,
+            Some(attr) => {
+				println!("attr: {:?}\n\n\n", attr);
+				attr
+			}
             None => return None
         };
+		let file_type = match attr.file_type() {
+			attr::FileType::Directory => fuse::FileType::Directory,
+			attr::FileType::TextFile => fuse::FileType::RegularFile
+		};
+		
 
         return Some(fuse::FileAttr {
             ino: attr.ino(),
             size: attr.size(),
             blocks: 0,
-            atime: time::Timespec{sec: 1, nsec: 0},
-            mtime: time::Timespec{sec: 1, nsec: 0},
-            ctime: time::Timespec{sec: 1, nsec: 0},
-            crtime: time::Timespec{sec: 1, nsec: 0},
-            kind: fuse::FileType::RegularFile,
-            perm: 0,
-            nlink: 0,
-            uid: 0,
-            gid: 0,
+            atime: time::now().to_timespec(),
+            mtime: time::now().to_timespec(),
+            ctime: time::now().to_timespec(),
+            crtime: time::now().to_timespec(),
+            kind: file_type,
+            perm: 0x777,
+            nlink: 2,
+            uid: 1000,
+            gid: 1000,
             rdev: 0,
             flags: 0,
         });
