@@ -8,5 +8,8 @@ use clap::Parser;
 )]
 pub struct Config {
     #[clap(short, long)]
-    pub config_path: String
+    pub config_path: String,
+
+    #[clap(short, long)]
+    pub mountpoint: String
 }
