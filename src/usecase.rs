@@ -86,6 +86,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             None => return None
         };
 
+		println!("called usecase readdir");
         for entry in entries.iter() {
             let child_ino = entry.child_ino();
             let child_attr = match entity.attr(&child_ino) {

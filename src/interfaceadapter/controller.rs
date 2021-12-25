@@ -47,7 +47,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             ctime: time::now().to_timespec(),
             crtime: time::now().to_timespec(),
             kind: fuse::FileType::RegularFile,
-            perm: 0x777,
+            perm: 0o777,
             nlink: 2,
             uid: 1000,
             gid: 1000,
@@ -58,10 +58,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
 
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr> {
         let attr = match self.usecase.attr_from_ino(ino) {
-            Some(attr) => {
-				println!("attr: {:?}\n\n\n", attr);
-				attr
-			}
+            Some(attr) => attr,
             None => return None
         };
 		let file_type = match attr.file_type() {
@@ -79,7 +76,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             ctime: time::now().to_timespec(),
             crtime: time::now().to_timespec(),
             kind: file_type,
-            perm: 0x777,
+            perm: 0o777,
             nlink: 2,
             uid: 1000,
             gid: 1000,

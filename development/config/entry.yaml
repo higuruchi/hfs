@@ -1,7 +1,7 @@
-- ino: 0
+- ino: 1
   files:
-    - 1
     - 2
+    - 3
 
 - ino: 2
   files:
