@@ -38,6 +38,9 @@ const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
 const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
 const DATA_DEFAULT_PATH: &str = "/etc/data.yaml";
 
+const DIRECTORY: u64 = 0;
+const TXTFILE: u64 = 1;
+
 pub fn new() -> impl worker::File {
     YAMLImageStruct{
         attr: path::PathBuf::from(ATTR_DEFAULT_PATH),
@@ -57,20 +60,22 @@ impl worker::File for YAMLImageStruct {
             Ok(attrs) => attrs,
             Err(_) => return Err(())
         };
-
+		
+		println!("{:?}", entries);
+		println!("{:?}", attrs);
         return Ok(entity::new(attrs, entries, HashMap::new()));
     }
 
-    fn attr_from_ino(&self, path: &path::Path, ino: i64) -> Result<attr::Attr, ()> {
-        Ok(attr::new(1, 1, String::from("this is name")))
+    fn attr_from_ino(&self, path: &path::Path, ino: u64) -> Result<attr::Attr, ()> {
+        Ok(attr::new(1, 1, String::from("this is name"), attr::FileType::Directory))
     }
 
-    fn data_from_ino(&self, path: &path::Path, ino: i64) -> Result<data::Data, ()> {
+    fn data_from_ino(&self, path: &path::Path, ino: u64) -> Result<data::Data, ()> {
         Ok(data::new(1, String::from("this is data")))
     }
 
-    fn entry_from_ino(&self, path: &path::Path, ino: i64) -> Result<entry::Entry, ()> {
-        Ok(entry::new(1, 1, 1))
+    fn entry_from_ino(&self, path: &path::Path, ino: u64) -> Result<entry::Entry, ()> {
+        Ok(entry::new(1, 1))
     }
 }
 
@@ -108,11 +113,14 @@ impl YAMLImageStruct {
         return Ok(());
     }
 
-    fn load_entry(&self) -> Result<HashMap<i64, Vec<entry::Entry>>, ()> {
+    fn load_entry(&self) -> Result<HashMap<u64, Vec<entry::Entry>>, ()> {
         let mut file = match File::open(&self.entry) {
             Ok(file) => file,
-            Err(e) => return Err(())
+            Err(e) => {
+				return Err(());
+			}
         };
+
         let mut config = String::new();
         match file.read_to_string(&mut config) {
             Ok(_) => {}
@@ -127,7 +135,7 @@ impl YAMLImageStruct {
         for entry_data in docs[0].as_vec().unwrap() {
             let mut entries = Vec::new();
             let ino = match &entry_data[INO] {
-                Yaml::Integer(i) => *i,
+                Yaml::Integer(i) => *i as u64,
                 _ => return Err(())
             };
 
@@ -135,11 +143,11 @@ impl YAMLImageStruct {
                 Yaml::Array(child_inos_data) => {
                     for child_ino_data in child_inos_data {
                         let child_ino = match child_ino_data {
-                            Yaml::Integer(i) => *i,
-                            _ => -1
+                            Yaml::Integer(i) => *i as u64,
+                            _ => return Err(())
                         };
 
-                        entries.push(entry::new(ino, -1, child_ino));
+                        entries.push(entry::new(ino, child_ino));
                     }
                 },
                 _ => {}
@@ -151,7 +159,7 @@ impl YAMLImageStruct {
         return Ok(entrie_hash);
     }
 
-    fn load_attr(&self) -> Result<HashMap<i64, attr::Attr>, ()> {
+    fn load_attr(&self) -> Result<HashMap<u64, attr::Attr>, ()> {
         let mut file = match File::open(&self.attr) {
             Ok(file) => file,
             Err(e) => return Err(())
@@ -169,7 +177,7 @@ impl YAMLImageStruct {
         
         for attr_data in docs[0].as_vec().unwrap() {
             let ino = match &attr_data[INO] {
-                Yaml::Integer(i) => *i,
+                Yaml::Integer(i) => *i as u64,
                 _ => return Err(())
             };
             let name = match &attr_data[NAME] {
@@ -177,15 +185,23 @@ impl YAMLImageStruct {
                 _ => return Err(())
             };
             let file_type = match &attr_data[FILE_TYPE] {
-                Yaml::Integer(i) => *i,
+                Yaml::Integer(i) =>{
+                    match *i as u64 {
+                        DIRECTORY => attr::FileType::Directory,
+                        TXTFILE => attr::FileType::TextFile,
+                        _ => attr::FileType::TextFile
+                    }
+                },
                 _ => return Err(())
             };
             let size = match &attr_data[SIZE] {
-                Yaml::Integer(i) => *i,
+                Yaml::Integer(i) => {
+                    *i as u64
+                },
                 _ => return Err(())
             };
 
-            attrs_hash.insert(ino, attr::new(ino, size, name));
+            attrs_hash.insert(ino, attr::new(ino, size, name, file_type));
         }
 
         return Ok(attrs_hash);

@@ -2,11 +2,11 @@ FROM rust AS builder
 
 WORKDIR /src
 
-COPY ./ /src
-
 RUN apt update -y && \
     apt install fuse -y && \
     apt install libfuse-dev -y
+
+COPY ./ /src
 
 RUN cargo build
 
