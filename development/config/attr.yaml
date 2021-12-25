@@ -1,3 +1,5 @@
+# Directory: 0
+# TextFile: 1
 - ino: 1
   name: root
   file-type: 0
@@ -11,4 +13,9 @@
 - ino: 3
   name: directory1
   file-type: 0
+  size: 1
+
+- ino: 4
+  name: file2
+  file-type: 1
   size: 0

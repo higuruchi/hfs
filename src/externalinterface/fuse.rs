@@ -51,6 +51,7 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
     }
 
     fn lookup(&mut self, _req: &Request, parent: u64, name: &OsStr, reply: ReplyEntry){
+
         match self.controller.lookup(parent, name) {
             Some(attr) => reply.entry(&time::Timespec{sec: 1, nsec: 0}, &attr , 0),
             None => reply.error(libc::ENOENT)
@@ -58,6 +59,7 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
     }
 
     fn getattr(&mut self, _req: &Request, ino: u64, reply: ReplyAttr) {
+		
         match self.controller.getattr(ino) {
             Some(attr) => reply.attr(&time::Timespec{sec: 1, nsec: 0}, &attr),
             None => reply.error(libc::ENOENT)
@@ -66,15 +68,22 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
     }
 
     fn readdir(&mut self, _req: &Request, ino: u64, _fh: u64, offset: i64, mut reply: ReplyDirectory) {
+		println!("offset:{:?}", offset);
 		if offset == 0 {
+
+			println!("called readdir: {:?}", self.controller.readdir(ino));
 			let files_data = match self.controller.readdir(ino) {
 				Some(files_data) => files_data,
 				None => return reply.error(libc::ENOENT)
 			};
 			
 			for (i, file_data) in files_data.iter().enumerate() {
-				let offset: i64 = i.try_into().unwrap();
-				let full = reply.add(file_data.0, offset, file_data.2, file_data.1);
+				let offset: i64 = (i + 1).try_into().unwrap();
+				let ino = file_data.0;
+				let kind = file_data.2;
+				let name = file_data.1;
+
+				let full = reply.add(ino, offset, kind, name);
 				if full {
 					break;
 				}

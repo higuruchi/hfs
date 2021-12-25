@@ -37,6 +37,10 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             Some(attr) => attr,
             None => return None
         };
+		let file_type = match attr.file_type() {
+			attr::FileType::Directory => fuse::FileType::Directory,
+			attr::FileType::TextFile => fuse::FileType::RegularFile
+		};
 
         return Some(fuse::FileAttr {
             ino: attr.ino(),
@@ -46,7 +50,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             mtime: time::now().to_timespec(),
             ctime: time::now().to_timespec(),
             crtime: time::now().to_timespec(),
-            kind: fuse::FileType::RegularFile,
+            kind: file_type,
             perm: 0o777,
             nlink: 2,
             uid: 1000,
@@ -93,6 +97,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         };
 
         for file_data in files_data.iter() {
+
             let file_type = match file_data.2 {
                 attr::FileType::Directory => fuse::FileType::Directory,
                 attr::FileType::TextFile => fuse::FileType::RegularFile
