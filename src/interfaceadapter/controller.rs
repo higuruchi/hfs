@@ -2,6 +2,7 @@ use crate::usecase;
 use std::path::Path;
 use std::ffi::OsStr;
 use crate::entity::attr;
+use anyhow::Result;
 use fuse;
 use time;
 
@@ -10,7 +11,7 @@ struct ControllerStruct<U: usecase::Usecase> {
 }
 
 pub trait Controller {
-    fn init(&mut self, config: &String) -> Result<(), ()>;
+    fn init(&mut self, config: &String) -> Result<() 23>;
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr>;
     fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
@@ -26,10 +27,10 @@ pub fn new<U>(usecase: U) -> impl Controller
 }
 
 impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
-    fn init(&mut self, config: &String) -> Result<(), ()> {
+    fn init(&mut self, config: &String) -> Result<()> {
 		match self.usecase.init(&Path::new(config)) {
 			Ok(_) => Ok(()),
-			Err(_) => return Err(())
+			Err(e) => return Err(e)
 		}
     }
 
