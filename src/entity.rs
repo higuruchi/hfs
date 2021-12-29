@@ -36,4 +36,11 @@ impl FileStruct {
             None => return None
         }
     }
+
+    pub fn data(&self, ino: &u64) -> Option<&data::Data> {
+        match self.data.get(ino) {
+            Some(data) => return Some(data),
+            None => return None
+        }
+    }
 }

@@ -9,10 +9,10 @@ pub struct Attr {
     // pub ctime: SystemTime,
     // pub crtime: SystemTime,
     pub kind: FileType,
-    // pub perm: u16,
+    pub perm: u16,
     // pub nlink: u32,
-    // pub uid: u32,
-    // pub gid: u32,
+    pub uid: u32,
+    pub gid: u32,
     // pub rdev: u32,
     // pub flags: u32,
 }
@@ -27,13 +27,19 @@ pub fn new(
     ino: u64,
     size: u64,
     name: String,
-    kind: FileType
+    kind: FileType,
+    perm: u16,
+    uid: u32,
+    gid: u32
 ) -> Attr {
     Attr {
         ino: ino,
         size: size,
         name: name,
-        kind: kind
+        kind: kind,
+        perm: perm,
+        uid: uid,
+        gid: gid
     }
 }
 
@@ -52,5 +58,17 @@ impl Attr {
 
     pub fn file_type(&self) -> FileType {
         return self.kind;
+    }
+
+    pub fn perm(&self) -> u16 {
+        return self.perm;
+    }
+
+    pub fn uid(&self) -> u32 {
+        return self.uid;
+    }
+
+    pub fn gid(&self) -> u32 {
+        return self.gid;
     }
 }
