@@ -15,6 +15,7 @@ pub trait Usecase {
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr>;
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr>;
     fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
+    fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&str>;
 }
 
 pub fn new<F>(file_repository: F) -> impl Usecase 
@@ -28,7 +29,7 @@ pub fn new<F>(file_repository: F) -> impl Usecase
 
 impl<F: repository::File> Usecase for UsecaseStruct<F> {
     fn init(&mut self, path: &path::Path) -> Result<(), ()> {
-        match self.file_repository.init(path) {
+       match self.file_repository.init(path) {
             Ok(file_struct) => {
                 self.entity = Some(file_struct);
                 return Ok(());
@@ -99,5 +100,21 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         }
 
         return Some(ret_vec);
+    }
+    
+    fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&str> {
+        let entity = match &self.entity {
+            Some(entity) => entity,
+            None => return None
+        };
+        let data = match entity.data(&ino) {
+            Some(data) => data,
+            None => return None
+        };
+        let text_data = data.data();
+        let end = offset as u64 + size;
+
+        return Some(text_data);
+//        return Some(&text_data[(offset as usize)..(end as usize)]);
     }
 }

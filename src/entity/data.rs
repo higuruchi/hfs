@@ -10,3 +10,9 @@ pub fn new(ino: u64, data: String) -> Data {
         data: data
     }
 }
+
+impl Data {
+    pub fn data(&self) -> &str {
+        return &self.data;
+    }
+}

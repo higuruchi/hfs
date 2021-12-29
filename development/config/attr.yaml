@@ -4,18 +4,30 @@
   name: root
   file-type: 0
   size: 2
+  uid: 1000
+  gid: 1000
+  perm: 0o755 
 
 - ino: 2
   name: file1
   file-type: 1
-  size: 20
+  size: 24
+  uid: 1000
+  gid: 1000
+  perm: 0o644
 
 - ino: 3
   name: directory1
   file-type: 0
   size: 1
+  uid: 1000
+  gid: 1000
+  perm: 0o755 
 
 - ino: 4
   name: file2
   file-type: 1
   size: 0
+  uid: 1000
+  gid: 1000
+  perm: 0o644

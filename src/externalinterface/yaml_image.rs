@@ -28,11 +28,12 @@ const FILE_TYPE:    &str = "file-type";
 const PARENT_INO:   &str = "parent-ino";
 const NAME:         &str = "name";
 const METADATA:     &str = "metadata";
-const USER:         &str = "user";
-const GROUP:        &str = "group";
 const TIME:         &str = "time";
 const FILES:        &str = "files";
 const SIZE:         &str = "size";
+const UID:          &str = "uid";
+const GID:          &str = "gid";
+const PERM:         &str = "perm";
 
 const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
 const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
@@ -60,22 +61,12 @@ impl worker::File for YAMLImageStruct {
             Ok(attrs) => attrs,
             Err(_) => return Err(())
         };
-		
-		println!("{:?}", entries);
-		println!("{:?}", attrs);
-        return Ok(entity::new(attrs, entries, HashMap::new()));
-    }
+        let data = match self.load_data() {
+            Ok(data) => data,
+            Err(_) => return Err(())
+        };		
 
-    fn attr_from_ino(&self, path: &path::Path, ino: u64) -> Result<attr::Attr, ()> {
-        Ok(attr::new(1, 1, String::from("this is name"), attr::FileType::Directory))
-    }
-
-    fn data_from_ino(&self, path: &path::Path, ino: u64) -> Result<data::Data, ()> {
-        Ok(data::new(1, String::from("this is data")))
-    }
-
-    fn entry_from_ino(&self, path: &path::Path, ino: u64) -> Result<entry::Entry, ()> {
-        Ok(entry::new(1, 1))
+        return Ok(entity::new(attrs, entries, data));
     }
 }
 
@@ -104,7 +95,7 @@ impl YAMLImageStruct {
             Yaml::String(s) => path::PathBuf::from(s),
             _ => path::PathBuf::from(ENTRY_DEFAULT_PATH)
         };
-
+        
         self.data = match &docs[0][DATA] {
             Yaml::String(s) => path::PathBuf::from(s),
             _ => path::PathBuf::from(DATA_DEFAULT_PATH)
@@ -200,10 +191,58 @@ impl YAMLImageStruct {
                 },
                 _ => return Err(())
             };
+            let uid = match &attr_data[UID] {
+                Yaml::Integer(i) => *i as u32,
+                _ => return Err(())
+            };
+            let gid = match &attr_data[GID] {
+                Yaml::Integer(i) => *i as u32,
+                _ => return Err(())
+            };
+            let perm = match &attr_data[PERM] {
+                Yaml::Integer(i) => *i as u16,
+                _ => return Err(())
+            };
 
-            attrs_hash.insert(ino, attr::new(ino, size, name, file_type));
+            attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid));
         }
 
         return Ok(attrs_hash);
+    }
+    
+    fn load_data(&self) -> Result<HashMap<u64, data::Data>, ()> {
+        let mut file = match File::open(&self.data) {
+            Ok(file) => file,
+            Err(e) => return Err(())
+        };
+
+        let mut config = String::new();
+        match file.read_to_string(&mut config) {
+            Ok(_) => {}
+            Err(e) => return Err(())
+        };
+        
+        let docs = match YamlLoader::load_from_str(&config) {
+            Ok(docs) => docs,
+            Err(e) => return Err(())
+        };
+
+        let mut data_hash = HashMap::new();
+
+        for data in docs[0].as_vec().unwrap() {
+            let ino = match &data[INO] {
+                Yaml::Integer(i) => *i as u64,
+                _ => return Err(())
+            };
+
+            let text_data = match &data[DATA] {
+                Yaml::String(s) => s.clone(),
+                _ => return Err(())
+            };
+            
+            data_hash.insert(ino, data::new(ino, text_data));
+        }
+
+        return Ok(data_hash);
     }
 }

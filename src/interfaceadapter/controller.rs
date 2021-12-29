@@ -14,6 +14,7 @@ pub trait Controller {
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr>;
     fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
+    fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&[u8]>;
 }
 
 pub fn new<U>(usecase: U) -> impl Controller
@@ -51,10 +52,10 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             ctime: time::now().to_timespec(),
             crtime: time::now().to_timespec(),
             kind: file_type,
-            perm: 0o777,
+            perm: attr.perm(),
             nlink: 2,
-            uid: 1000,
-            gid: 1000,
+            uid: attr.uid(),
+            gid: attr.gid(),
             rdev: 0,
             flags: 0,
         });
@@ -80,10 +81,10 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             ctime: time::now().to_timespec(),
             crtime: time::now().to_timespec(),
             kind: file_type,
-            perm: 0o777,
+            perm: attr.perm(),
             nlink: 2,
-            uid: 1000,
-            gid: 1000,
+            uid: attr.uid(),
+            gid: attr.gid(),
             rdev: 0,
             flags: 0,
         });
@@ -106,5 +107,16 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         }
 
         return Some(return_vec);
+    }
+    
+    fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&[u8]> {
+        let mut ret_data: Vec<u8> = Vec::with_capacity(size as usize);
+        let data = match self.usecase.read(ino, offset, size) {
+            Some(data) => data,
+            None => return None
+        };
+        let ret_data = data.as_bytes();
+
+        return Some(ret_data);
     }
 }

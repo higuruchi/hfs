@@ -68,10 +68,8 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
     }
 
     fn readdir(&mut self, _req: &Request, ino: u64, _fh: u64, offset: i64, mut reply: ReplyDirectory) {
-		println!("offset:{:?}", offset);
 		if offset == 0 {
 
-			println!("called readdir: {:?}", self.controller.readdir(ino));
 			let files_data = match self.controller.readdir(ino) {
 				Some(files_data) => files_data,
 				None => return reply.error(libc::ENOENT)
@@ -89,8 +87,17 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
 				}
 			}
 		}
-        reply.ok();
-    }
+		reply.ok();
+	}
+
+    fn read(&mut self, _req: &Request, ino: u64, _fh: u64, offset: i64, size: u32, reply: ReplyData){
+        let data = match self.controller.read(ino, offset, size as u64) {
+            Some(data) => data,
+            None => return  reply.error(libc::ENOENT)
+        };
+
+        reply.data(data);
+    } 
 }
 
 // impl<C: controller::Controller> Fuse for FuseStruct<C> {
