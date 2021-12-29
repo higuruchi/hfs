@@ -2,6 +2,7 @@ pub mod repository;
 
 use std::path;
 use std::ffi::OsStr;
+use anyhow::Result;
 use crate::entity::{self, attr};
 
 #[derive(Debug)]
@@ -11,7 +12,7 @@ struct UsecaseStruct<F: repository::File> {
 }
 
 pub trait Usecase {
-    fn init(&mut self, path: &path::Path) -> Result<(), ()>;
+    fn init(&mut self, path: &path::Path) -> Result<()>;
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr>;
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr>;
     fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
@@ -28,13 +29,13 @@ pub fn new<F>(file_repository: F) -> impl Usecase
 }
 
 impl<F: repository::File> Usecase for UsecaseStruct<F> {
-    fn init(&mut self, path: &path::Path) -> Result<(), ()> {
+    fn init(&mut self, path: &path::Path) -> Result<()> {
        match self.file_repository.init(path) {
             Ok(file_struct) => {
                 self.entity = Some(file_struct);
                 return Ok(());
             },
-            Err(_) => return Err(())
+            Err(e) => return Err(e)
         };
     }
 

@@ -18,13 +18,6 @@ struct FuseStruct <C: controller::Controller>{
     controller: C
 }
 
-// pub trait Fuse {
-//     fn init(&mut self);
-//     fn lookup(&self);
-//     fn getattr(&self);
-//     fn readdir(&self);
-// }
-
 pub fn new<C>(config: config::Config, controller: C) -> impl Filesystem
     where C: controller::Controller,
 {
@@ -43,8 +36,8 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
 				println!("Initialized!");
 				return Ok(());
 			},
-            Err(_) => {
-				println!("Failed Initialized!");
+            Err(e) => {
+				println!("Failed Initialized!: {}", e);
 				return Err(libc::ENOENT)
 			}
         }
@@ -100,23 +93,3 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
     } 
 }
 
-// impl<C: controller::Controller> Fuse for FuseStruct<C> {
-//     fn init(&mut self) {
-//         self.controller.init(&self.config);
-//     }
-
-//     fn lookup(&self) {
-//         let attr = self.controller.lookup(0, OsStr::new("file1"));
-//         println!("attr : {:?}", attr);
-//     }
-
-//     fn getattr(&self) {
-//         let attr = self.controller.getattr(1);
-//         println!("attr : {:?}", attr);
-//     }
-
-//     fn readdir(&self) {
-//         let entry = self.controller.readdir(0);
-//         println!("entry : {:?}", entry);
-//     }
-// }
