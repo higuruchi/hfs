@@ -87,7 +87,7 @@ impl worker::File for YAMLImageStruct {
             Err(e) => return Err(e.into())
         };
 
-        content.push_str(format!("- ino: {}\n  data: \"{}\"\n", ino, data).as_str());
+        content.push_str(format!("- ino: {}\n  data: {:?}\n", ino, data).as_str());
         file.write_all(&content.into_bytes());
         return Ok(());
     }
@@ -107,13 +107,13 @@ impl worker::File for YAMLImageStruct {
         };
 
         let file_type = match attr.file_type() {
-            Directory => 0,
-            TextFile => 1
+            TextFile => 1,
+            Directory => 0
         };
 
         content.push_str(
             format!(
-                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: {:o}\n",
+                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: 0o{:o}\n",
                 attr.ino(),
                 attr.name(),
                 file_type,
