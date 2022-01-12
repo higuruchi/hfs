@@ -15,10 +15,6 @@ fn main() {
         Err(()) => panic!("Initialize error")
     };
 
-    // fs.init();
-    // fs.lookup();
-    // fs.getattr();
-
 	println!("mounted hfs");
     fuse::mount(fs, &mountpoint, &[]).expect("failed mount");
 }

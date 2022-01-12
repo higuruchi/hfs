@@ -33,7 +33,8 @@ pub enum Error {
     InvalidGID,
     InvalidPERM,
     InvalidData,
-    InvalidEntry
+    InvalidEntry,
+    InternalError
 }
 
 impl fmt::Display for Error {
@@ -48,6 +49,7 @@ impl fmt::Display for Error {
             Self::InvalidPERM => write!(f, "There is no permission or permission is invalid"),
             Self::InvalidData => write!(f, "There is no data or data is invalid"),
             Self::InvalidEntry => write!(f, "There is no entry or entry is invalid"),
+            Self::InternalError => write!(f, "Internal Error")
         } 
     }
 }
@@ -75,5 +77,29 @@ impl FileStruct {
             Some(data) => return Some(data),
             None => return None
         }
+    }
+
+    pub fn update_data(&mut self, ino: u64, data: data::Data) -> Result<(), Error> {
+        self.data.insert(ino, data);
+        return Ok(());
+    }
+
+    pub fn update_size(&mut self, ino: u64, size: u64) -> Result<(), Error> {
+        let attr = match self.attr.get(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let new_attr = attr::new(
+            ino,
+            size,
+            attr.name().to_string(),
+            attr.kind(),
+            attr.perm(),
+            attr.uid(),
+            attr.gid()
+        );
+        self.attr.insert(ino, new_attr);
+        return Ok(());
     }
 }

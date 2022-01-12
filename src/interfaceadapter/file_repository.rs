@@ -1,6 +1,6 @@
 use std::path;
 use crate::usecase::repository::File;
-use crate::entity;
+use crate::entity::{self, attr};
 use crate::interfaceadapter::{worker};
 use anyhow::Result;
 
@@ -18,11 +18,23 @@ pub fn new<F>(file_worker: F) -> impl File
 
 impl<F: worker::File> File for FileRepositoryStruct<F> {
     fn init(&mut self, path: &path::Path) -> Result<entity::FileStruct> {
-        let files = match self.file_worker.init(path) {
-            Ok(files) => files,
-            Err(e) => return Err(e)
-        };
+        match self.file_worker.init(path) {
+            Ok(files) => Ok(files),
+            Err(e) => Err(e)
+        }
+    }
 
-        return Ok(files); 
+    fn write_data(&self, ino: u64, data: &str) -> Result<()> {
+        match self.file_worker.write_data(ino, data) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
+    }
+
+    fn update_attr(&self, attr: &attr::Attr) -> Result<()> {
+        match self.file_worker.update_attr(attr) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into())
+        }
     }
 }

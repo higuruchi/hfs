@@ -3,3 +3,15 @@
 
 - ino: 4
   data: ""
+- ino: 2
+  data: "this is content of file1hoge
+"
+- ino: 2
+  data: "this is content of file1hoge fuga
+"
+- ino: 2
+  data: "this is content of file1hoge fuck
+"
+- ino: 2
+  data: "this is content of file1hoge fuck wow
+"
