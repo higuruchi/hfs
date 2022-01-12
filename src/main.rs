@@ -5,6 +5,7 @@ use fuse;
 use std::ffi::OsStr;
 
 fn main() {
+    env_logger::init();
     let config = config::Config::parse();
 
     // 後ほど修正
