@@ -45,30 +45,34 @@ pub fn new(
 
 impl Attr {
     pub fn ino(&self) -> u64 {
-        return self.ino;
+        self.ino
     }
 
     pub fn size(&self) -> u64 {
-        return self.size;
+        self.size
     }
 
     pub fn name(&self) -> &str {
-        return &self.name;
+        &self.name
     }
 
     pub fn file_type(&self) -> FileType {
-        return self.kind;
+        self.kind
     }
 
     pub fn perm(&self) -> u16 {
-        return self.perm;
+        self.perm
     }
 
     pub fn uid(&self) -> u32 {
-        return self.uid;
+        self.uid
     }
 
     pub fn gid(&self) -> u32 {
-        return self.gid;
+        self.gid
+    }
+
+    pub fn kind(&self) -> FileType {
+        self.kind
     }
 }

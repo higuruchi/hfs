@@ -1,8 +1,9 @@
 extern crate yaml_rust;
 
 use std::path;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::prelude::*;
+use std::io::Write;
 use std::collections::HashMap;
 use yaml_rust::{YamlLoader, YamlEmitter, Yaml};
 use crate::entity::{
@@ -44,36 +45,6 @@ const DATA_DEFAULT_PATH: &str = "/etc/data.yaml";
 const DIRECTORY: u64 = 0;
 const TXTFILE: u64 = 1;
 
-//#[drive(Debug)]
-//pub enum YamlLoadError {
-//    InvalidINO,
-//    InvalidName,
-//    InvalidFileType,
-//    InvalidSize,
-//    InvalidUID,
-//    InvalidGID,
-//    InvalidPERM,
-//    InvalidData,
-//    InvalidEntry
-//}
-//
-//impl fmt::Display for YamlLoadError {
-//    fn fmt(&self, f: &mut fmt ::Formatter<'_>) -> fmt::Result {
-//        match self {
-//            Self::InvalidINO => write!(f, "There is no inode or inode is invalid"),
-//            Self::InvalidName => write!(f, "There is no name or is name invalid"),
-//            Self::InvalidFileType => write!(f, "There is no file type or file type is invalid"),
-//            Self::InvalidSize => write!(f, "There is no size or size is size invalid"),
-//            Self::InvalidUID =>write!(f, "There is no uid or uid is invalid"),
-//            Self::InvalidGID => write!(f, "There is no gid or gid is invalid"),
-//            Self::InvalidPERM => write!(f, "There is no permission or permission is invalid"),
-//            Self::InvalidData => write!(f, "There is no data or data is invalid"),
-//            Self::InvaidEntry => write!(f, "There is no entry or entry is invalid"),
-//        } 
-//    }
-//}
-
-//impl error::Error for YamlLoadError {}
 
 pub fn new() -> impl worker::File {
     YAMLImageStruct{
@@ -100,6 +71,60 @@ impl worker::File for YAMLImageStruct {
         };	
 
         return Ok(entity::new(attrs, entries, data));
+    }
+
+    fn write_data(&self, ino: u64, data: &str) -> Result<()> {
+        let data_path = match self.data.to_str() {
+            Some(data_path) => data_path,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        let mut content = match fs::read_to_string(data_path) {
+            Ok(content) => content,
+            Err(e) => return Err(e.into())
+        };
+        let mut file = match File::create(data_path) {
+            Ok(f) => f,
+            Err(e) => return Err(e.into())
+        };
+
+        content.push_str(format!("- ino: {}\n  data: \"{}\"\n", ino, data).as_str());
+        file.write_all(&content.into_bytes());
+        return Ok(());
+    }
+
+    fn update_attr(&self, attr: &attr::Attr) -> Result<()> {
+        let attr_path = match self.attr.to_str() {
+            Some(attr_path) => attr_path,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        let mut content = match fs::read_to_string(attr_path) {
+            Ok(content) => content,
+            Err(e) => return Err(e.into())
+        };
+        let mut file = match File::create(attr_path) {
+            Ok(f) => f,
+            Err(e) => return Err(e.into())
+        };
+
+        let file_type = match attr.file_type() {
+            Directory => 0,
+            TextFile => 1
+        };
+
+        content.push_str(
+            format!(
+                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: {:o}\n",
+                attr.ino(),
+                attr.name(),
+                file_type,
+                attr.size(),
+                attr.uid(),
+                attr.gid(),
+                attr.perm()
+            ).as_str()
+        );
+        file.write_all(&content.into_bytes());
+        return Ok(());
     }
 }
 

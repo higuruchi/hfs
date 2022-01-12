@@ -11,7 +11,7 @@
 - ino: 2
   name: file1
   file-type: 1
-  size: 24
+  size: 29
   uid: 1000
   gid: 1000
   perm: 0o644
@@ -31,3 +31,17 @@
   uid: 1000
   gid: 1000
   perm: 0o644
+- ino: 2
+  name: file1
+  file-type: 1
+  size: 34
+  uid: 1000
+  gid: 1000
+  perm: 0o644
+- ino: 2
+  name: file1
+  file-type: 0
+  size: 38
+  uid: 1000
+  gid: 1000
+  perm: 644

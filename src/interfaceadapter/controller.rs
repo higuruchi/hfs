@@ -5,17 +5,19 @@ use crate::entity::attr;
 use anyhow::Result;
 use fuse;
 use time;
+use std::str;
 
 struct ControllerStruct<U: usecase::Usecase> {
     usecase: U
 }
 
 pub trait Controller {
-    fn init(&mut self, config: &String) -> Result<() 23>;
+    fn init(&mut self, config: &String) -> Result<()>;
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr>;
     fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
     fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&[u8]>;
+    fn write(&mut self, ino: u64, offset: u64, data: &[u8]) -> Result<u32>;
 }
 
 pub fn new<U>(usecase: U) -> impl Controller
@@ -119,5 +121,15 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         let ret_data = data.as_bytes();
 
         return Some(ret_data);
+    }
+
+    fn write(&mut self, ino: u64, offset: u64, data: &[u8]) -> Result<u32>{
+        let data_str = str::from_utf8(data).unwrap();
+
+        let size = match self.usecase.write(ino, offset, data_str) { 
+            Ok(size) => size,
+            Err(e) => return Err(e)
+        };
+        return Ok(size as u32); 
     }
 }
