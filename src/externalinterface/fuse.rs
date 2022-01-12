@@ -94,11 +94,10 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
     } 
 
     fn write(&mut self, _req: &Request<'_>, ino: u64, _fh: u64, offset: i64, data: &[u8], flags: u32, reply: ReplyWrite) {
-        let size = match self.controller.write(ino, offset as u64, data) {
-            Ok(data) => data,
-            Err(_) => return reply.error(libc::ENOENT)
-        };
-        reply.written(size)
+        match self.controller.write(ino, offset as u64, data) {
+            Ok(size) => reply.written(size),
+            Err(_) => reply.error(libc::ENOENT)
+        }
     }
 }
 

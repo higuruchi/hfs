@@ -172,20 +172,20 @@ fn merge_str(offset: u64, data: &str, old_str: &str) -> Result<String> {
     let data_bytes = data.as_bytes();
     let old_str_bytes = old_str.as_bytes();
 
-
-    for (i, &data) in old_str_bytes.iter().enumerate() {
+    for &data in old_str_bytes.iter() {
         new_string_vec.push(data);
     }
 
     // ----------------------
     let data_end_offset = offset + data.len() as u64;
-    if 0 <= data_end_offset && data_end_offset <= old_str.len() as u64 {
+    let old_str_len = old_str.len() as u64;
+
+    if 0 <= data_end_offset && data_end_offset < old_str_len {
         for (i, &data) in data_bytes.iter().enumerate() {
             new_string_vec[i + offset as usize] = data;
         }
     }
 
-    let old_str_len = old_str.len() as u64;
     if offset < old_str_len && old_str_len < data_end_offset {
         for (i, &data) in data_bytes.iter().enumerate() {
             if (old_str.len() as u64) < i as u64 {
