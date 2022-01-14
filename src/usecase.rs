@@ -16,7 +16,7 @@ pub trait Usecase {
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr>;
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr>;
     fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
-    fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&str>;
+    fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&str>;
     fn write(&mut self, ino: u64, offset: u64, data: &str) -> Result<u64>;
 }
 
@@ -104,19 +104,16 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         return Some(ret_vec);
     }
     
-    fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&str> {
-        let entity = match &self.entity {
+    fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&str> {
+        let entity = match &mut self.entity {
             Some(entity) => entity,
-            None => return None
-        };
-        let data = match entity.data(&ino) {
-            Some(data) => data,
             None => return None
         };
         let attr = match entity.attr(&ino) {
             Some(attr) => attr,
             None => return None
         };
+        let st = attr::SystemTime::now();
         let new_attr = attr::new(
             ino,
             attr.size(),
@@ -125,9 +122,15 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             attr.perm(),
             attr.uid(),
             attr.gid(),
-            attr::SystemTime::now()
+            st
         );
         self.file_repository.update_attr(&new_attr);
+        entity.update_atime(ino, st);
+
+        let data = match entity.data(&ino) {
+            Some(data) => data,
+            None => return None
+        };
         let text_data = data.data();
         let end = offset as u64 + size;
 

@@ -16,7 +16,7 @@ pub trait Controller {
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr>;
     fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
-    fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&[u8]>;
+    fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&[u8]>;
     fn write(&mut self, ino: u64, offset: u64, data: &[u8]) -> Result<u32>;
 }
 
@@ -112,7 +112,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         return Some(return_vec);
     }
     
-    fn read(&self, ino: u64, offset: i64, size: u64) -> Option<&[u8]> {
+    fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&[u8]> {
         let mut ret_data: Vec<u8> = Vec::with_capacity(size as usize);
         let data = match self.usecase.read(ino, offset, size) {
             Some(data) => data,
@@ -135,11 +135,5 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
 }
 
 fn timespeck(st: attr::SystemTime) -> time::Timespec {
-    // if let Ok(dur_since_epoch) = st.duration_since(std::time::UNIX_EPOCH) {
-    //     time::Timespec::new(dur_since_epoch.as_secs() as i64, dur_since_epoch.subsec_nanos() as i32)
-    // } else {
-    //     time::Timespec::new(0, 0)
-    // }
-
     time::Timespec::new(st.as_secs() as i64, st.subsec_nanos() as i32)
 }
