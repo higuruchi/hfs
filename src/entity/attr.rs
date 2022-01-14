@@ -4,7 +4,7 @@ pub struct Attr {
     pub size: u64,
     pub name: String,
     // pub blocks: u32,
-    // pub atime: SystemTime,
+    pub atime: SystemTime,
     // pub mtime: SystemTime,
     // pub ctime: SystemTime,
     // pub crtime: SystemTime,
@@ -23,6 +23,9 @@ pub enum FileType {
     TextFile
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct SystemTime(pub u64, pub u32);
+
 pub fn new(
     ino: u64,
     size: u64,
@@ -30,7 +33,8 @@ pub fn new(
     kind: FileType,
     perm: u16,
     uid: u32,
-    gid: u32
+    gid: u32,
+    atime: SystemTime
 ) -> Attr {
     Attr {
         ino: ino,
@@ -39,7 +43,8 @@ pub fn new(
         kind: kind,
         perm: perm,
         uid: uid,
-        gid: gid
+        gid: gid,
+        atime: atime
     }
 }
 
@@ -74,5 +79,27 @@ impl Attr {
 
     pub fn kind(&self) -> FileType {
         self.kind
+    }
+
+    pub fn atime(&self) -> SystemTime {
+        self.atime
+    }
+}
+
+impl SystemTime {
+    pub fn now() -> SystemTime {
+        let now = std::time::SystemTime::now();
+        if let Ok(epoch) = now.duration_since(std::time::SystemTime::UNIX_EPOCH) {
+            SystemTime(epoch.as_secs(), epoch.subsec_nanos())
+        } else {
+            SystemTime(0, 0)
+        }
+    }
+    pub fn as_secs(&self) -> u64 {
+        return self.0
+    }
+
+    pub fn subsec_nanos(&self) -> u32 {
+        return self.1
     }
 }
