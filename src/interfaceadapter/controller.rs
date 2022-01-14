@@ -79,7 +79,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             ino: attr.ino(),
             size: attr.size(),
             blocks: 0,
-            atime: time::now().to_timespec(),
+            atime: timespeck(attr.atime()),
             mtime: time::now().to_timespec(),
             ctime: time::now().to_timespec(),
             crtime: time::now().to_timespec(),
@@ -132,4 +132,14 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         };
         return Ok(size as u32); 
     }
+}
+
+fn timespeck(st: attr::SystemTime) -> time::Timespec {
+    // if let Ok(dur_since_epoch) = st.duration_since(std::time::UNIX_EPOCH) {
+    //     time::Timespec::new(dur_since_epoch.as_secs() as i64, dur_since_epoch.subsec_nanos() as i32)
+    // } else {
+    //     time::Timespec::new(0, 0)
+    // }
+
+    time::Timespec::new(st.as_secs() as i64, st.subsec_nanos() as i32)
 }

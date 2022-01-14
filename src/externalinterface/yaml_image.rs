@@ -13,7 +13,6 @@ use crate::entity::{
     entry
 };
 use crate::interfaceadapter::worker;
-//use std::{error, fmt};
 use anyhow::Result;
 
 #[derive(Debug)]
@@ -37,6 +36,7 @@ const SIZE:         &str = "size";
 const UID:          &str = "uid";
 const GID:          &str = "gid";
 const PERM:         &str = "perm";
+const ATIME:        &str = "atime";
 
 const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
 const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
@@ -113,14 +113,16 @@ impl worker::File for YAMLImageStruct {
 
         content.push_str(
             format!(
-                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: 0o{:o}\n",
+                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: 0o{:o}\n  atime: \"{}.{}\"",
                 attr.ino(),
                 attr.name(),
                 file_type,
                 attr.size(),
                 attr.uid(),
                 attr.gid(),
-                attr.perm()
+                attr.perm(),
+                attr.atime.as_secs(),
+                attr.atime.subsec_nanos()
             ).as_str()
         );
         file.write_all(&content.into_bytes());
@@ -261,8 +263,19 @@ impl YAMLImageStruct {
                 Yaml::Integer(i) => *i as u16,
                 _ => return Err(entity::Error::InvalidPERM.into())
             };
+            let atime = match &attr_data[ATIME] {
+                Yaml::String(s) => {
+                    let epoc_string = s.clone();
+                    let epoc_vec: Vec<&str> = epoc_string.split('.').collect();
+                    let secs: u64 = epoc_vec[0].parse().unwrap();
+                    let nanos: u32 = epoc_vec[1].parse().unwrap();
 
-            attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid));
+                    attr::SystemTime(secs,nanos)
+                },
+                _ => return Err(entity::Error::InvalidAtime.into())
+            };
+            
+            attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid, atime));
         }
 
         return Ok(attrs_hash);

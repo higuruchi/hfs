@@ -6,7 +6,8 @@
   size: 2
   uid: 1000
   gid: 1000
-  perm: 0o755 
+  perm: 0o755
+  atime: "1564098289.702339081"
 - ino: 2
   name: file1
   file-type: 1
@@ -14,6 +15,7 @@
   uid: 1000
   gid: 1000
   perm: 0o644
+  atime: "1564098289.702339081"
 - ino: 3
   name: directory1
   file-type: 0
@@ -21,6 +23,7 @@
   uid: 1000
   gid: 1000
   perm: 0o755 
+  atime: "1564098289.702339081"
 - ino: 4
   name: file2
   file-type: 1
@@ -28,73 +31,5 @@
   uid: 1000
   gid: 1000
   perm: 0o644
-- ino: 2
-  name: file1
-  file-type: 1
-  size: 31
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 4
-  name: file2
-  file-type: 1
-  size: 5
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 4
-  name: file2
-  file-type: 1
-  size: 10
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 4
-  name: file2
-  file-type: 1
-  size: 15
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 4
-  name: file2
-  file-type: 1
-  size: 20
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 4
-  name: file2
-  file-type: 1
-  size: 25
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 4
-  name: file2
-  file-type: 1
-  size: 30
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 4
-  name: file2
-  file-type: 1
-  size: 35
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 4
-  name: file2
-  file-type: 1
-  size: 40
-  uid: 1000
-  gid: 1000
-  perm: 0o644
-- ino: 2
-  name: file1
-  file-type: 1
-  size: 36
-  uid: 1000
-  gid: 1000
-  perm: 0o644
+  atime: "1564098289.702339081"
+  

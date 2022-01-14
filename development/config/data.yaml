@@ -2,23 +2,3 @@
   data: "this is content of file1"
 - ino: 4
   data: ""
-- ino: 2
-  data: "this is content of file1hohoho\n"
-- ino: 4
-  data: "hoge\n"
-- ino: 4
-  data: "hoge\nhoge\n"
-- ino: 4
-  data: "hoge\nhoge\nhoge\n"
-- ino: 4
-  data: "hoge\nhoge\nhoge\nhoge\n"
-- ino: 4
-  data: "hoge\nhoge\nhoge\nhoge\nhoge\n"
-- ino: 4
-  data: "hoge\nhoge\nhoge\nhoge\nhoge\nhoge\n"
-- ino: 4
-  data: "hoge\nhoge\nhoge\nhoge\nhoge\nhoge\nhoge\n"
-- ino: 4
-  data: "hoge\nhoge\nhoge\nhoge\nhoge\nhoge\nhoge\nhoge\n"
-- ino: 2
-  data: "this is content of file1hohoho\nhoge\n"

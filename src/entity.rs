@@ -34,7 +34,8 @@ pub enum Error {
     InvalidPERM,
     InvalidData,
     InvalidEntry,
-    InternalError
+    InternalError,
+    InvalidAtime
 }
 
 impl fmt::Display for Error {
@@ -49,7 +50,8 @@ impl fmt::Display for Error {
             Self::InvalidPERM => write!(f, "There is no permission or permission is invalid"),
             Self::InvalidData => write!(f, "There is no data or data is invalid"),
             Self::InvalidEntry => write!(f, "There is no entry or entry is invalid"),
-            Self::InternalError => write!(f, "Internal Error")
+            Self::InternalError => write!(f, "Internal Error"),
+            Self::InvalidAtime => write!(f, "There is no atime or atime is invalid")
         } 
     }
 }
@@ -97,7 +99,8 @@ impl FileStruct {
             attr.kind(),
             attr.perm(),
             attr.uid(),
-            attr.gid()
+            attr.gid(),
+            attr.atime()
         );
         self.attr.insert(ino, new_attr);
         return Ok(());

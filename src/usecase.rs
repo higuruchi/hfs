@@ -113,6 +113,21 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             Some(data) => data,
             None => return None
         };
+        let attr = match entity.attr(&ino) {
+            Some(attr) => attr,
+            None => return None
+        };
+        let new_attr = attr::new(
+            ino,
+            attr.size(),
+            attr.name().to_string(),
+            attr.kind(),
+            attr.perm(),
+            attr.uid(),
+            attr.gid(),
+            attr::SystemTime::now()
+        );
+        self.file_repository.update_attr(&new_attr);
         let text_data = data.data();
         let end = offset as u64 + size;
 
@@ -150,7 +165,8 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             attr.kind(),
             attr.perm(),
             attr.uid(),
-            attr.gid()
+            attr.gid(),
+            attr.atime()
         );
         self.file_repository.update_attr(&new_attr);
 
