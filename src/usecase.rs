@@ -122,7 +122,9 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             attr.perm(),
             attr.uid(),
             attr.gid(),
-            st
+            st,
+            attr.mtime(),
+            attr.ctime()
         );
         self.file_repository.update_attr(&new_attr);
         entity.update_atime(ino, st);
@@ -161,6 +163,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             Some(attr) => attr,
             None => return Err(entity::Error::InternalError.into())
         };
+        let st = attr::SystemTime::now();
         let new_attr = attr::new(
             ino,
             len,
@@ -169,7 +172,9 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             attr.perm(),
             attr.uid(),
             attr.gid(),
-            attr.atime()
+            attr.atime(),
+            st,
+            st
         );
         self.file_repository.update_attr(&new_attr);
 

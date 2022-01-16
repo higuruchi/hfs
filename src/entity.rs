@@ -100,7 +100,9 @@ impl FileStruct {
             attr.perm(),
             attr.uid(),
             attr.gid(),
-            attr.atime()
+            attr.atime(),
+            attr.mtime(),
+            attr.ctime()
         );
         self.attr.insert(ino, new_attr);
         return Ok(());
@@ -120,7 +122,31 @@ impl FileStruct {
             attr.perm(),
             attr.uid(),
             attr.gid(),
-            st
+            st,
+            attr.mtime(),
+            attr.ctime()
+        );
+        self.attr.insert(ino, new_attr);
+        return Ok(());
+    }
+
+    pub fn update_mtime(&mut self, ino: u64, st: attr::SystemTime) -> Result<(), Error> {
+        let attr = match self.attr.get(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let new_attr = attr::new(
+            ino,
+            attr.size(),
+            attr.name().to_string(),
+            attr.kind(),
+            attr.perm(),
+            attr.uid(),
+            attr.gid(),
+            attr.atime(),
+            attr.mtime(),
+            attr.ctime(),
         );
         self.attr.insert(ino, new_attr);
         return Ok(());
