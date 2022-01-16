@@ -37,6 +37,8 @@ const UID:          &str = "uid";
 const GID:          &str = "gid";
 const PERM:         &str = "perm";
 const ATIME:        &str = "atime";
+const MTIME:        &str = "mtime";
+const CTIME:        &str = "ctime";
 
 const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
 const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
@@ -113,7 +115,7 @@ impl worker::File for YAMLImageStruct {
 
         content.push_str(
             format!(
-                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: 0o{:o}\n  atime: \"{}.{}\"",
+                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: 0o{:o}\n  atime: \"{}.{}\"\n  mtime: \"{}.{}\"\n  ctime: \"{}.{}\"\n",
                 attr.ino(),
                 attr.name(),
                 file_type,
@@ -122,7 +124,11 @@ impl worker::File for YAMLImageStruct {
                 attr.gid(),
                 attr.perm(),
                 attr.atime.as_secs(),
-                attr.atime.subsec_nanos()
+                attr.atime.subsec_nanos(),
+                attr.mtime.as_secs(),
+                attr.mtime.subsec_nanos(),
+                attr.ctime.as_secs(),
+                attr.ctime.subsec_nanos()
             ).as_str()
         );
         file.write_all(&content.into_bytes());
@@ -274,8 +280,30 @@ impl YAMLImageStruct {
                 },
                 _ => return Err(entity::Error::InvalidAtime.into())
             };
+            let mtime = match &attr_data[MTIME] {
+                Yaml::String(s) => {
+                    let epoc_string = s.clone();
+                    let epoc_vec: Vec<&str> = epoc_string.split('.').collect();
+                    let secs: u64 = epoc_vec[0].parse().unwrap();
+                    let nanos: u32 = epoc_vec[1].parse().unwrap();
+
+                    attr::SystemTime(secs,nanos)
+                },
+                _ => return Err(entity::Error::InvalidAtime.into())
+            };
+            let ctime = match &attr_data[CTIME] {
+                Yaml::String(s) => {
+                    let epoc_string = s.clone();
+                    let epoc_vec: Vec<&str> = epoc_string.split('.').collect();
+                    let secs: u64 = epoc_vec[0].parse().unwrap();
+                    let nanos: u32 = epoc_vec[1].parse().unwrap();
+
+                    attr::SystemTime(secs,nanos)
+                },
+                _ => return Err(entity::Error::InvalidAtime.into())
+            };
             
-            attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid, atime));
+            attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid, atime, mtime, ctime));
         }
 
         return Ok(attrs_hash);

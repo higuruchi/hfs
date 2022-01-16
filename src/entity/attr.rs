@@ -5,9 +5,8 @@ pub struct Attr {
     pub name: String,
     // pub blocks: u32,
     pub atime: SystemTime,
-    // pub mtime: SystemTime,
-    // pub ctime: SystemTime,
-    // pub crtime: SystemTime,
+    pub mtime: SystemTime,
+    pub ctime: SystemTime,
     pub kind: FileType,
     pub perm: u16,
     // pub nlink: u32,
@@ -34,7 +33,9 @@ pub fn new(
     perm: u16,
     uid: u32,
     gid: u32,
-    atime: SystemTime
+    atime: SystemTime,
+    mtime: SystemTime,
+    ctime: SystemTime
 ) -> Attr {
     Attr {
         ino: ino,
@@ -44,7 +45,9 @@ pub fn new(
         perm: perm,
         uid: uid,
         gid: gid,
-        atime: atime
+        atime: atime,
+        mtime: mtime,
+        ctime: ctime
     }
 }
 
@@ -83,6 +86,14 @@ impl Attr {
 
     pub fn atime(&self) -> SystemTime {
         self.atime
+    }
+
+    pub fn mtime(&self) -> SystemTime {
+        self.mtime
+    }
+
+    pub fn ctime(&self) -> SystemTime {
+        self.ctime
     }
 }
 
