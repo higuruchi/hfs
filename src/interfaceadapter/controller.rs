@@ -15,7 +15,7 @@ pub trait Controller {
     fn init(&mut self, config: &String) -> Result<()>;
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr>;
-    fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
+    fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&[u8]>;
     fn write(&mut self, ino: u64, offset: u64, data: &[u8]) -> Result<u32>;
 }
@@ -93,7 +93,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         });
     }
 
-    fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>> {
+    fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>> {
         let mut return_vec = Vec::new();
         let files_data = match self.usecase.readdir(ino) {
             Some(files_data) => files_data,

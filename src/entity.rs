@@ -87,68 +87,46 @@ impl FileStruct {
     }
 
     pub fn update_size(&mut self, ino: u64, size: u64) -> Result<(), Error> {
-        let attr = match self.attr.get(&ino) {
+        let attr = match self.attr.get_mut(&ino) {
             Some(attr) => attr,
             None => return Err(Error::InternalError)
         };
-
-        let new_attr = attr::new(
-            ino,
-            size,
-            attr.name().to_string(),
-            attr.kind(),
-            attr.perm(),
-            attr.uid(),
-            attr.gid(),
-            attr.atime(),
-            attr.mtime(),
-            attr.ctime()
-        );
-        self.attr.insert(ino, new_attr);
+        let size_p = attr.size_mut();
+        *size_p = size;
+        
         return Ok(());
     }
 
     pub fn update_atime(&mut self, ino: u64, st: attr::SystemTime) -> Result<(), Error> {
-        let attr = match self.attr.get(&ino) {
+        let attr = match self.attr.get_mut(&ino) {
             Some(attr) => attr,
             None => return Err(Error::InternalError)
         };
+        let atime = attr.atime_mut();
+        *atime = st;
 
-        let new_attr = attr::new(
-            ino,
-            attr.size(),
-            attr.name().to_string(),
-            attr.kind(),
-            attr.perm(),
-            attr.uid(),
-            attr.gid(),
-            st,
-            attr.mtime(),
-            attr.ctime()
-        );
-        self.attr.insert(ino, new_attr);
         return Ok(());
     }
 
     pub fn update_mtime(&mut self, ino: u64, st: attr::SystemTime) -> Result<(), Error> {
-        let attr = match self.attr.get(&ino) {
+        let attr = match self.attr.get_mut(&ino) {
             Some(attr) => attr,
             None => return Err(Error::InternalError)
         };
+        let mtime = attr.mtime_mut();
+        *mtime = st;
 
-        let new_attr = attr::new(
-            ino,
-            attr.size(),
-            attr.name().to_string(),
-            attr.kind(),
-            attr.perm(),
-            attr.uid(),
-            attr.gid(),
-            attr.atime(),
-            attr.mtime(),
-            attr.ctime(),
-        );
-        self.attr.insert(ino, new_attr);
+        return Ok(());
+    }
+
+    pub fn update_ctime(&mut self, ino: u64, st: attr::SystemTime) -> Result<(), Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+        let ctime = attr.ctime_mut();
+        *ctime = st;
+
         return Ok(());
     }
 }

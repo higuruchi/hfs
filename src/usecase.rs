@@ -15,7 +15,7 @@ pub trait Usecase {
     fn init(&mut self, path: &path::Path) -> Result<()>;
     fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr>;
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr>;
-    fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
+    fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&str>;
     fn write(&mut self, ino: u64, offset: u64, data: &str) -> Result<u64>;
 }
@@ -78,16 +78,37 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         return entity.attr(&ino);
     }
 
-    fn readdir(&self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>> {
+    fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>> {
         let mut ret_vec = Vec::new();
-        let entity = match &self.entity {
+        let entity = match &mut self.entity {
             Some(entity) => entity,
             None => return None
         };
+        let st = attr::SystemTime::now();
+        entity.update_atime(ino, st);
+
+
         let entries = match entity.entry(&ino) {
             Some(entries) => entries,
             None => return None
         };
+        let attr = match entity.attr(&ino) {
+            Some(attr) => attr,
+            None => return None
+        };
+        let new_attr = attr::new(
+            ino,
+            attr.size(),
+            attr.name().to_string(),
+            attr.kind(),
+            attr.perm(),
+            attr.uid(),
+            attr.gid(),
+            st,
+            attr.mtime(),
+            attr.ctime()
+        );
+        self.file_repository.update_attr(&new_attr);
 
         for entry in entries.iter() {
             let child_ino = entry.child_ino();
@@ -177,6 +198,8 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             st
         );
         self.file_repository.update_attr(&new_attr);
+        entity.update_mtime(ino, st);
+        entity.update_ctime(ino, st);
 
         let data = data::new(ino, new_text_data);
 

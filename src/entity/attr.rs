@@ -95,6 +95,22 @@ impl Attr {
     pub fn ctime(&self) -> SystemTime {
         self.ctime
     }
+
+    pub fn size_mut(&mut self) -> &mut u64 {
+        &mut self.size
+    }
+
+    pub fn atime_mut(&mut self) -> &mut SystemTime {
+        &mut self.atime
+    }
+
+    pub fn mtime_mut(&mut self) -> &mut SystemTime {
+        &mut self.mtime
+    }
+
+    pub fn ctime_mut(&mut self) -> &mut SystemTime {
+        &mut self.ctime
+    }
 }
 
 impl SystemTime {
