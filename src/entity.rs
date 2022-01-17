@@ -86,6 +86,40 @@ impl FileStruct {
         return Ok(());
     }
 
+    pub fn update_perm(&mut self, ino: u64, perm: u16) -> Result<(), Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let perm_p = attr.perm_mut();
+        *perm_p = perm;
+
+        return Ok(());
+    }
+
+    pub fn update_uid(&mut self, ino: u64, uid: u32) -> Result<(), Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let uid_p = attr.uid_mut();
+        *uid_p = uid;
+        return Ok(());
+    }
+
+    pub fn update_gid(&mut self, ino: u64, gid: u32) -> Result<(), Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let gid_p = attr.gid_mut();
+        *gid_p = gid;
+        return Ok(());
+    }
+
     pub fn update_size(&mut self, ino: u64, size: u64) -> Result<(), Error> {
         let attr = match self.attr.get_mut(&ino) {
             Some(attr) => attr,

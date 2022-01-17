@@ -18,6 +18,16 @@ pub trait Usecase {
     fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&str>;
     fn write(&mut self, ino: u64, offset: u64, data: &str) -> Result<u64>;
+    fn setattr(
+        &mut self,
+        ino: u64,
+        mode: Option<u32>,
+        uid: Option<u32>,
+        gid: Option<u32>,
+        size: Option<u64>,
+        atime: Option<attr::SystemTime>,
+        mtime: Option<attr::SystemTime>
+    ) -> Result<attr::Attr>;
 }
 
 pub fn new<F>(file_repository: F) -> impl Usecase 
@@ -157,7 +167,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         let text_data = data.data();
         let end = offset as u64 + size;
 
-        // offsetを考慮して返却する必要がある
+        // TODO: offsetを考慮して返却する必要がある
         return Some(text_data);
 //        return Some(&text_data[(offset as usize)..(end as usize)]);
     }
@@ -180,32 +190,59 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
 
         self.file_repository.write_data(ino, new_text_data.as_str());
         
-        let attr = match entity.attr(&ino) {
-            Some(attr) => attr,
-            None => return Err(entity::Error::InternalError.into())
-        };
         let st = attr::SystemTime::now();
-        let new_attr = attr::new(
-            ino,
-            len,
-            attr.name().to_string(),
-            attr.kind(),
-            attr.perm(),
-            attr.uid(),
-            attr.gid(),
-            attr.atime(),
-            st,
-            st
-        );
-        self.file_repository.update_attr(&new_attr);
-        entity.update_mtime(ino, st);
-        entity.update_ctime(ino, st);
-
         let data = data::new(ino, new_text_data);
 
         entity.update_data(ino, data);
         entity.update_size(ino, len);
+        entity.update_mtime(ino, st);
+        entity.update_ctime(ino, st);
+
+        let attr = match entity.attr(&ino) {
+            Some(attr) => attr,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        self.file_repository.update_attr(&attr);
+
         return Ok(len);
+    }
+
+    fn setattr(
+        &mut self,
+        ino: u64,
+        mode: Option<u32>,
+        uid: Option<u32>,
+        gid: Option<u32>,
+        size: Option<u64>,
+        atime: Option<attr::SystemTime>,
+        mtime: Option<attr::SystemTime>
+    ) -> Result<attr::Attr> {
+        // TODO:
+        // sizeが元のファイルサイズより小さい0以外の値が指定された場合、
+        // 残すべきデータは残しつつ、いらないデータがきちんと破壊されるようにする
+
+        // TODO:
+        // 元のファイルサイズより大きい値が指定された場合、
+        // 間のデータが0(\0)で埋められるようにする
+        let entity = match &mut self.entity {
+            Some(entity) => entity,
+            None => return Err(entity::Error::InternalError.into()) 
+        };
+
+        if let Some(n) = mode { entity.update_perm(ino, n as u16); };
+        if let Some(n) = uid { entity.update_uid(ino, n); };
+        if let Some(n) = gid { entity.update_gid(ino, n); };
+        if let Some(n) = size { entity.update_size(ino, n); };
+        if let Some(n) = atime { entity.update_atime(ino, n); };
+        if let Some(n) = mtime { entity.update_mtime(ino, n); };
+
+        let attr = match entity.attr(&ino) {
+            Some(attr) => attr,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        self.file_repository.update_attr(attr);
+        
+        return Ok(attr.clone());
     }
 }
 

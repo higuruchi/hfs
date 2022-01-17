@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Attr {
     pub ino: u64,
     pub size: u64,
@@ -96,6 +96,18 @@ impl Attr {
         self.ctime
     }
 
+    pub fn perm_mut(&mut self) -> &mut u16 {
+        &mut self.perm
+    }
+
+    pub fn uid_mut(&mut self) -> &mut u32 {
+        &mut self.uid
+    }
+
+    pub fn gid_mut(&mut self) -> &mut u32 {
+        &mut self.gid
+    }
+
     pub fn size_mut(&mut self) -> &mut u64 {
         &mut self.size
     }
@@ -122,6 +134,11 @@ impl SystemTime {
             SystemTime(0, 0)
         }
     }
+
+    pub fn new(sec: u64, nsec: u32) -> SystemTime {
+        SystemTime(sec, nsec)
+    }
+
     pub fn as_secs(&self) -> u64 {
         return self.0
     }

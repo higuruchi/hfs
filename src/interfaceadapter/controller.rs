@@ -18,6 +18,16 @@ pub trait Controller {
     fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&[u8]>;
     fn write(&mut self, ino: u64, offset: u64, data: &[u8]) -> Result<u32>;
+    fn setattr(
+        &mut self,
+        ino: u64,
+        mode: Option<u32>,
+        uid: Option<u32>,
+        gid: Option<u32>,
+        size: Option<u64>,
+        atime: Option<time::Timespec>,
+        mtime: Option<time::Timespec>
+    ) -> Result<fuse::FileAttr>;
 }
 
 pub fn new<U>(usecase: U) -> impl Controller
@@ -50,9 +60,9 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             ino: attr.ino(),
             size: attr.size(),
             blocks: 0,
-            atime: time::now().to_timespec(),
-            mtime: time::now().to_timespec(),
-            ctime: time::now().to_timespec(),
+            atime: timespeck(attr.atime()),
+            mtime: timespeck(attr.mtime()),
+            ctime: timespeck(attr.ctime()),
             crtime: time::now().to_timespec(),
             kind: file_type,
             perm: attr.perm(),
@@ -80,8 +90,8 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             size: attr.size(),
             blocks: 0,
             atime: timespeck(attr.atime()),
-            mtime: time::now().to_timespec(),
-            ctime: time::now().to_timespec(),
+            mtime: timespeck(attr.mtime()),
+            ctime: timespeck(attr.ctime()),
             crtime: time::now().to_timespec(),
             kind: file_type,
             perm: attr.perm(),
@@ -131,6 +141,59 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             Err(e) => return Err(e)
         };
         return Ok(size as u32); 
+    }
+
+    fn setattr(
+        &mut self,
+        ino: u64,
+        mode: Option<u32>,
+        uid: Option<u32>,
+        gid: Option<u32>,
+        size: Option<u64>,
+        atime: Option<time::Timespec>,
+        mtime: Option<time::Timespec>
+    ) -> Result<fuse::FileAttr> {
+        let atime_systime;
+        let mtime_systime;
+
+        if let Some(n) = atime {
+            atime_systime = Some(attr::SystemTime::new(n.sec as u64, n.nsec as u32));
+        } else {
+            atime_systime = None;
+        }
+
+        if let Some(n) = mtime {
+            mtime_systime = Some(attr::SystemTime::new(n.sec as u64, n.nsec as u32));
+        } else {
+            mtime_systime = None;
+        }
+
+        let attr = match self.usecase.setattr(ino, mode, uid, gid, size, atime_systime, mtime_systime) {
+            Ok(attr) => attr,
+            Err(e) => return Err(e)
+        };
+
+        let file_type = match attr.file_type() {
+			attr::FileType::Directory => fuse::FileType::Directory,
+			attr::FileType::TextFile => fuse::FileType::RegularFile
+		};
+
+        return Ok(fuse::FileAttr {
+            ino: attr.ino(),
+            size: attr.size(),
+            blocks: 0,
+            atime: timespeck(attr.atime()),
+            mtime: timespeck(attr.mtime()),
+            ctime: timespeck(attr.ctime()),
+            crtime: time::now().to_timespec(),
+            kind: file_type,
+            perm: attr.perm(),
+            nlink: 2,
+            uid: attr.uid(),
+            gid: attr.gid(),
+            rdev: 0,
+            flags: 0,
+        });
     }
 }
 
