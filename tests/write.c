@@ -27,6 +27,7 @@ int append_test(char *file_path, char *data)
         return FAILURE;
     }
     fprintf(fp, "%s", data);
+    fclose(fp);
 
     fp = fopen(file_path, "r");
     char file_str[MAX_BUFFER];
@@ -44,11 +45,25 @@ int append_test(char *file_path, char *data)
 
 int overwrite_test(char *file_path, char *data)
 {
-    // TODO
-    return SUCCESS;
-    FILE *fd = fopen(file_path, "r+");
-    if (fd == NULL) {
+
+    FILE *fp = fopen(file_path, "w");
+    if (fp == NULL) {
         ERROR("FILE NOT FOUND");
         return FAILURE;
     }
+
+    fprintf(fp, "%s", data);
+    fclose(fp);
+
+    fp = fopen(file_path, "r");
+    char c;
+    int i = 0;
+    while ((c = fgetc(fp)) != EOF) {
+        if (c != data[i]) {
+            fclose(fp);
+            return FAILURE;
+        }
+        i++;
+    }
+    return FAILURE;
 }

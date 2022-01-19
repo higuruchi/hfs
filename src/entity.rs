@@ -58,6 +58,11 @@ impl fmt::Display for Error {
 
 impl error::Error for Error {}
 
+pub enum Compare {
+    Equal,
+    Begger,
+    Smaller
+}
 
 impl FileStruct {
     pub fn attr(&self, ino: &u64) -> Option<&attr::Attr> {
@@ -162,5 +167,26 @@ impl FileStruct {
         *ctime = st;
 
         return Ok(());
+    }
+
+    // ino > size -> Begger
+    // ino == size -> Equal
+    // ino < size -> Smaller
+    pub fn cmp_data_size(&self, ino: u64, size: u64) -> Result<Compare, Error> {
+        let attr = match self.attr.get(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let ino_size = attr.size();
+
+        if ino_size > size {
+            return Ok(Compare::Begger);
+        }
+        if ino_size == size {
+            return Ok(Compare::Equal);
+        }
+
+        Ok(Compare::Smaller)
     }
 }
