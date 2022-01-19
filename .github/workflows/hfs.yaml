@@ -1,0 +1,12 @@
+name: hfs
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: pwd
+      - run: ls
+      - run: rustc --version
+      # - use: actions/checkout@1
+      # - name: build
