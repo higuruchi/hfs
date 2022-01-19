@@ -93,9 +93,41 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
         reply.data(data);
     } 
 
-    fn write(&mut self, _req: &Request<'_>, ino: u64, _fh: u64, offset: i64, data: &[u8], flags: u32, reply: ReplyWrite) {
+    fn write(
+        &mut self,
+        _req: &Request<'_>,
+        ino: u64,
+        _fh: u64,
+        offset: i64,
+        data: &[u8],
+        flags: u32,
+        reply: ReplyWrite
+    ) {
         match self.controller.write(ino, offset as u64, data) {
             Ok(size) => reply.written(size),
+            Err(_) => reply.error(libc::ENOENT)
+        }
+    }
+
+    fn setattr(
+        &mut self,
+        _req: &Request<'_>,
+        ino: u64, // 更新対象のinode番号
+        mode: Option<u32>, // アクセス権
+        uid: Option<u32>, // ファイル所有者のUID
+        gid: Option<u32>, // ファイル所有グループのUID
+        size: Option<u64>, // ファイルサイズ
+        atime: Option<time::Timespec>, // 最終アクセス時刻
+        mtime: Option<time::Timespec>, // 最終更新時刻
+        _fh: Option<u64>,
+        crtime: Option<time::Timespec>, // mac用
+        chgtime: Option<time::Timespec>, // mac用
+        bkuptime: Option<time::Timespec>, // mac用
+        flags: Option<u32>, // mac用
+        reply: ReplyAttr
+    ) {
+        match self.controller.setattr(ino, mode, uid, gid, size, atime, mtime) {
+            Ok(attr) => reply.attr(&time::Timespec{sec: 1, nsec: 0}, &attr),
             Err(_) => reply.error(libc::ENOENT)
         }
     }

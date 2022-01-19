@@ -18,6 +18,16 @@ pub trait Usecase {
     fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&str>;
     fn write(&mut self, ino: u64, offset: u64, data: &str) -> Result<u64>;
+    fn setattr(
+        &mut self,
+        ino: u64,
+        mode: Option<u32>,
+        uid: Option<u32>,
+        gid: Option<u32>,
+        size: Option<u64>,
+        atime: Option<attr::SystemTime>,
+        mtime: Option<attr::SystemTime>
+    ) -> Result<attr::Attr>;
 }
 
 pub fn new<F>(file_repository: F) -> impl Usecase 
@@ -157,7 +167,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         let text_data = data.data();
         let end = offset as u64 + size;
 
-        // offsetを考慮して返却する必要がある
+        // TODO: offsetを考慮して返却する必要がある
         return Some(text_data);
 //        return Some(&text_data[(offset as usize)..(end as usize)]);
     }
@@ -180,35 +190,98 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
 
         self.file_repository.write_data(ino, new_text_data.as_str());
         
-        let attr = match entity.attr(&ino) {
-            Some(attr) => attr,
-            None => return Err(entity::Error::InternalError.into())
-        };
         let st = attr::SystemTime::now();
-        let new_attr = attr::new(
-            ino,
-            len,
-            attr.name().to_string(),
-            attr.kind(),
-            attr.perm(),
-            attr.uid(),
-            attr.gid(),
-            attr.atime(),
-            st,
-            st
-        );
-        self.file_repository.update_attr(&new_attr);
-        entity.update_mtime(ino, st);
-        entity.update_ctime(ino, st);
-
         let data = data::new(ino, new_text_data);
 
         entity.update_data(ino, data);
         entity.update_size(ino, len);
+        entity.update_mtime(ino, st);
+        entity.update_ctime(ino, st);
+
+        let attr = match entity.attr(&ino) {
+            Some(attr) => attr,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        self.file_repository.update_attr(&attr);
+
         return Ok(len);
+    }
+
+    fn setattr(
+        &mut self,
+        ino: u64,
+        mode: Option<u32>,
+        uid: Option<u32>,
+        gid: Option<u32>,
+        size: Option<u64>,
+        atime: Option<attr::SystemTime>,
+        mtime: Option<attr::SystemTime>
+    ) -> Result<attr::Attr> {
+        // TODO:
+        // sizeが元のファイルサイズより小さい0以外の値が指定された場合、
+        // 残すべきデータは残しつつ、いらないデータがきちんと破壊されるようにする
+
+        // TODO:
+        // 元のファイルサイズより大きい値が指定された場合、
+        // 間のデータが0(\0)で埋められるようにする
+        let imu_entity = match &self.entity {
+            Some(entity) => entity,
+            None => return Err(entity::Error::InternalError.into()) 
+        };
+        let mut new_data = String::new();
+        if let Some(n) = size {
+            match imu_entity.cmp_data_size(ino, n) {
+                Ok(c) =>  {
+                    match c {
+                        Smaller => {
+                            // ずるしてます
+                            new_data = smaller_data(imu_entity.data(&ino).unwrap().data(), n);
+                        },
+                        Begger => {
+                            // ずるしてます
+                            new_data = begger_data(imu_entity.data(&ino).unwrap().data(), n);
+                        },
+                        Equal => {
+                            // 無駄な処理
+                            // ずるしてます
+                            new_data = imu_entity.data(&ino).unwrap().data().to_string();
+                        }
+                    }
+                },
+                Err(_) => return Err(entity::Error::InternalError.into())
+            }
+        }
+
+        let entity = match &mut self.entity {
+            Some(entity) => entity,
+            None => return Err(entity::Error::InternalError.into()) 
+        };
+
+        if let Some(n) = mode { entity.update_perm(ino, n as u16); };
+        if let Some(n) = uid { entity.update_uid(ino, n); };
+        if let Some(n) = gid { entity.update_gid(ino, n); };
+        if let Some(n) = size {
+            entity.update_data(ino, data::new(ino, new_data));
+            entity.update_size(ino, n);
+        };
+        if let Some(n) = atime { entity.update_atime(ino, n); };
+        if let Some(n) = mtime { entity.update_mtime(ino, n); };
+
+        let attr = match entity.attr(&ino) {
+            Some(attr) => attr,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        self.file_repository.update_attr(attr);
+        // ずるしてます
+        self.file_repository.write_data(ino, entity.data(&ino).unwrap().data());
+        
+        return Ok(attr.clone());
     }
 }
 
+
+// この関数テストコード欲しい
+// バグが多い気がする
 fn merge_str(offset: u64, data: &str, old_str: &str) -> Result<String> {
     let mut new_string_len = offset + data.len() as u64;
     if new_string_len < old_str.len() as u64 {
@@ -219,39 +292,56 @@ fn merge_str(offset: u64, data: &str, old_str: &str) -> Result<String> {
     let data_bytes = data.as_bytes();
     let old_str_bytes = old_str.as_bytes();
 
-    for &data in old_str_bytes.iter() {
-        new_string_vec.push(data);
+    for _ in 0..new_string_len {
+        new_string_vec.push(0);
     }
 
-    // ----------------------
-    let data_end_offset = offset + data.len() as u64;
-    let old_str_len = old_str.len() as u64;
-
-    if 0 <= data_end_offset && data_end_offset < old_str_len {
-        for (i, &data) in data_bytes.iter().enumerate() {
-            new_string_vec[i + offset as usize] = data;
-        }
+    
+    for (i, &data) in old_str_bytes.iter().enumerate() {
+        new_string_vec[i] = data;
     }
 
-    if offset < old_str_len && old_str_len < data_end_offset {
-        for (i, &data) in data_bytes.iter().enumerate() {
-            if (old_str.len() as u64) < i as u64 {
-                new_string_vec.push(data);
-                continue;
-            }
-            new_string_vec[i + offset as usize] = data;
-        }
+    for (i, &data) in data_bytes.iter().enumerate() {
+        new_string_vec[i + offset as usize] = data;
     }
-
-    if old_str_len <= offset {
-        for &data in data_bytes.iter() {
-            new_string_vec.push(data);
-        }
-    }
-    // ----------------------
 
     match String::from_utf8(new_string_vec) {
         Ok(string) => Ok(string),
         Err(e) => Err(e.into())
+    }
+}
+
+fn begger_data(data: &str, size: u64) -> String {
+    let mut new_string_vec = Vec::with_capacity(size as usize);
+    let data_bytes = data.as_bytes();
+
+    for &data in data_bytes.iter() {
+        new_string_vec.push(data);
+    }
+    for _ in data.len()..(size as usize) {
+        new_string_vec.push(0);
+    }
+
+    match String::from_utf8(new_string_vec) {
+        Ok(string) => string,
+        Err(e) => String::new()
+    }
+}
+
+fn smaller_data(data: &str,  size: u64) -> String {
+
+    let mut new_string_vec = Vec::with_capacity(size as usize);
+    let data_bytes = data.as_bytes();
+
+    for (i, &data) in data_bytes.iter().enumerate() {
+        if size  == i as u64 {
+            break;
+        }
+        new_string_vec.push(data);
+    }
+
+    match String::from_utf8(new_string_vec) {
+        Ok(string) => string,
+        Err(e) => String::new()
     }
 }

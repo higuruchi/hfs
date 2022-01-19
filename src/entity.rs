@@ -58,6 +58,11 @@ impl fmt::Display for Error {
 
 impl error::Error for Error {}
 
+pub enum Compare {
+    Equal,
+    Begger,
+    Smaller
+}
 
 impl FileStruct {
     pub fn attr(&self, ino: &u64) -> Option<&attr::Attr> {
@@ -83,6 +88,40 @@ impl FileStruct {
 
     pub fn update_data(&mut self, ino: u64, data: data::Data) -> Result<(), Error> {
         self.data.insert(ino, data);
+        return Ok(());
+    }
+
+    pub fn update_perm(&mut self, ino: u64, perm: u16) -> Result<(), Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let perm_p = attr.perm_mut();
+        *perm_p = perm;
+
+        return Ok(());
+    }
+
+    pub fn update_uid(&mut self, ino: u64, uid: u32) -> Result<(), Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let uid_p = attr.uid_mut();
+        *uid_p = uid;
+        return Ok(());
+    }
+
+    pub fn update_gid(&mut self, ino: u64, gid: u32) -> Result<(), Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let gid_p = attr.gid_mut();
+        *gid_p = gid;
         return Ok(());
     }
 
@@ -128,5 +167,26 @@ impl FileStruct {
         *ctime = st;
 
         return Ok(());
+    }
+
+    // ino > size -> Begger
+    // ino == size -> Equal
+    // ino < size -> Smaller
+    pub fn cmp_data_size(&self, ino: u64, size: u64) -> Result<Compare, Error> {
+        let attr = match self.attr.get(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let ino_size = attr.size();
+
+        if ino_size > size {
+            return Ok(Compare::Begger);
+        }
+        if ino_size == size {
+            return Ok(Compare::Equal);
+        }
+
+        Ok(Compare::Smaller)
     }
 }
