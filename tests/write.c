@@ -2,6 +2,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "hfs_test.h"
 
@@ -21,20 +24,28 @@ int write_test(char *file_path, char *data, int mode)
 
 int append_test(char *file_path, char *data)
 {
-    FILE *fp = fopen(file_path, "a");
-    if (fp == NULL) {
+    // ファイルの末尾に文字列を追記
+    int fd = open(file_path, O_RDWR | O_APPEND);
+    if (fd < 0) {
         ERROR("FILE NOT FOUND");
         return FAILURE;
     }
-    fprintf(fp, "%s", data);
-    fclose(fp);
 
-    fp = fopen(file_path, "r");
+    write(fd, data, strlen(data));
+
+    if (close(fd) < 0) {
+        ERROR("FILE CLOSE ERROR");
+        return FAILURE;
+    }
+
+    // 追記した文字列が正しく追記されているか検査
+    FILE *fp = fopen(file_path, "r");
     char file_str[MAX_BUFFER];
 
     while (fgets(file_str, MAX_BUFFER, fp) != NULL);
+    int last_lign_length = strlen(file_str);
 
-    if (strcmp(data, file_str) != 0) {
+    if (strcmp(data, (file_str + last_lign_length) - strlen(data)) != 0) {
         fclose(fp);
         return FAILURE;
     }
@@ -45,17 +56,23 @@ int append_test(char *file_path, char *data)
 
 int overwrite_test(char *file_path, char *data)
 {
-
-    FILE *fp = fopen(file_path, "w");
-    if (fp == NULL) {
+    // ファイルを上書き
+    int fd = open(file_path, O_WRONLY | O_TRUNC);
+    if (fd < 0) {
         ERROR("FILE NOT FOUND");
         return FAILURE;
     }
 
-    fprintf(fp, "%s", data);
-    fclose(fp);
+    ftruncate(fd, 0);
+    write(fd, data, strlen(data));
 
-    fp = fopen(file_path, "r");
+    if (close(fd) < 0) {
+        ERROR("FILE CLOSE ERROR");
+        return FAILURE;
+    }
+
+    // 上書きした文字列が書き込まれているか検査
+    FILE *fp = fopen(file_path, "r");
     char c;
     int i = 0;
     while ((c = fgetc(fp)) != EOF) {
@@ -65,5 +82,5 @@ int overwrite_test(char *file_path, char *data)
         }
         i++;
     }
-    return FAILURE;
+    return SUCCESS;
 }

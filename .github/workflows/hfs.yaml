@@ -1,0 +1,57 @@
+name: hfs
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Update
+        run: sudo apt update  -y
+              
+              
+      - name: Install fuse
+        run: sudo apt install fuse -y
+      
+      - name: Install libfuse-dev
+        run: sudo apt install libfuse-dev -y
+  
+      # - uses: actions/cache@v2
+      #   with:
+      #   path: |
+      #     ~/.cargo/registry
+      #     ~/.cargo/git
+      #     target
+      #   key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # - uses: actions-rs/toolchain@v1
+      #   with: 
+      #     toolchain: stable
+      #     components: rustfmt, clippy
+
+      # - uses: actions-rs/cargo@v1
+      #   with:
+      #     command: fmt
+      #     args: --all -- --check
+
+      # - uses: actions-rs/cargo@v1
+      #   with:
+      #     command: clippy
+
+      # - uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
+      #     args: --release --all-reatures
+
+      # - name: Test modules
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
+      
+      - name: Build Program
+        run: make all
+
+      - name: Execute program and Test
+        run: make

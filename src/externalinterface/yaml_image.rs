@@ -5,6 +5,7 @@ use std::fs::{self, File};
 use std::io::prelude::*;
 use std::io::Write;
 use std::collections::HashMap;
+use std::env;
 use yaml_rust::{YamlLoader, YamlEmitter, Yaml};
 use crate::entity::{
     self,
@@ -152,20 +153,43 @@ impl YAMLImageStruct {
             Err(e) => return Err(e.into())
         };
 
-        self.attr = match &docs[0][ATTR] {
-            Yaml::String(s) => path::PathBuf::from(s),
-            _ => path::PathBuf::from(ATTR_DEFAULT_PATH)
+        let mut attr = match &docs[0][ATTR] {
+            Yaml::String(s) => s.clone(),
+            _ => ATTR_DEFAULT_PATH.to_string()
         };
 
-        self.entry = match &docs[0][ENTRY] {
-            Yaml::String(s) => path::PathBuf::from(s),
-            _ => path::PathBuf::from(ENTRY_DEFAULT_PATH)
+        let mut entry = match &docs[0][ENTRY] {
+            Yaml::String(s) => s.clone(),
+            _ => ENTRY_DEFAULT_PATH.to_string()
         };
         
-        self.data = match &docs[0][DATA] {
-            Yaml::String(s) => path::PathBuf::from(s),
-            _ => path::PathBuf::from(DATA_DEFAULT_PATH)
+        let mut data = match &docs[0][DATA] {
+            Yaml::String(s) => s.clone(),
+            _ => DATA_DEFAULT_PATH.to_string()
         };
+
+        let current_dir = match env::current_dir()?.as_os_str().to_str() {
+            Some(path) => String::from(path),
+            None => String::from("/")
+        };
+
+        if *&attr.chars().nth(0).unwrap() == '.' {
+            attr.replace_range(..1, &current_dir)
+        }
+
+        if *&entry.chars().nth(0).unwrap() == '.' {
+            entry.replace_range(..1, &current_dir)
+        }
+
+        if *&data.chars().nth(0).unwrap() == '.' {
+            data.replace_range(..1, &current_dir)
+        }
+
+        self.attr = path::PathBuf::from(attr);
+        self.entry = path::PathBuf::from(entry);
+        self.data = path::PathBuf::from(data);
+
+        println!("{:?}\n{:?}\n{:?}\n", self.attr, self.entry, self.data);
 
         return Ok(());
     }
