@@ -9,13 +9,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // mountが完了するまで待つ
+    sleep(5);
+
     if (write_test(argv[1], "test1", MODE_APPEND) == SUCCESS) {
         puts("success");
     } else {
         puts("fail1");
     }
-
-    sleep(5);
 
     if (write_test(argv[1], "test1", MODE_OVERWRITE) == SUCCESS) {
         puts("success");
