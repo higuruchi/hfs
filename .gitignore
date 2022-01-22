@@ -1,3 +1,4 @@
 /target
 /tests/*.o
 /tests/test
+/tests/config/*.yaml

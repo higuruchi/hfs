@@ -1,0 +1,4 @@
+- ino: 2
+  data: "this is content of file1"
+- ino: 4
+  data: ""

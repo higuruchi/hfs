@@ -1,0 +1,3 @@
+entry: /home/higuruchi/fuse-exp/data/hfs/tests/config/entry.yaml
+data: /home/higuruchi/fuse-exp/data/hfs/tests/conig/data.yaml
+attr: /home/higuruchi/fuse-exp/data/hfs/tests/config/attr.yaml
