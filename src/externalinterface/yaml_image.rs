@@ -110,8 +110,8 @@ impl worker::File for YAMLImageStruct {
         };
 
         let file_type = match attr.file_type() {
-            TextFile => 1,
-            Directory => 0
+            attr::FileType::TextFile => 1,
+            attr::FileType::Directory => 0
         };
 
         content.push_str(
