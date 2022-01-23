@@ -40,6 +40,7 @@ const PERM:         &str = "perm";
 const ATIME:        &str = "atime";
 const MTIME:        &str = "mtime";
 const CTIME:        &str = "ctime";
+const NLINK:        &str = "nlink";
 
 const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
 const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
@@ -116,7 +117,7 @@ impl worker::File for YAMLImageStruct {
 
         content.push_str(
             format!(
-                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: 0o{:o}\n  atime: \"{}.{}\"\n  mtime: \"{}.{}\"\n  ctime: \"{}.{}\"\n",
+                "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: 0o{:o}\n  atime: \"{}.{}\"\n  mtime: \"{}.{}\"\n  ctime: \"{}.{}\"\n  nlink: {}\n",
                 attr.ino(),
                 attr.name(),
                 file_type,
@@ -129,7 +130,8 @@ impl worker::File for YAMLImageStruct {
                 attr.mtime.as_secs(),
                 attr.mtime.subsec_nanos(),
                 attr.ctime.as_secs(),
-                attr.ctime.subsec_nanos()
+                attr.ctime.subsec_nanos(),
+                attr.nlink()
             ).as_str()
         );
         file.write_all(&content.into_bytes());
@@ -326,8 +328,13 @@ impl YAMLImageStruct {
                 },
                 _ => return Err(entity::Error::InvalidAtime.into())
             };
+
+            let nlink = match &attr_data[NLINK] {
+                Yaml::Integer(i) => *i as u32,
+                _ => return Err(entity::Error::InvalidNlink.into())
+            };
             
-            attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid, atime, mtime, ctime));
+            attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid, atime, mtime, ctime, nlink));
         }
 
         return Ok(attrs_hash);

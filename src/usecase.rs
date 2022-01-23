@@ -116,7 +116,8 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             attr.gid(),
             st,
             attr.mtime(),
-            attr.ctime()
+            attr.ctime(),
+            attr.nlink()
         );
         self.file_repository.update_attr(&new_attr);
 
@@ -155,7 +156,8 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             attr.gid(),
             st,
             attr.mtime(),
-            attr.ctime()
+            attr.ctime(),
+            attr.nlink()
         );
         self.file_repository.update_attr(&new_attr);
         entity.update_atime(ino, st);

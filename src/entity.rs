@@ -35,7 +35,8 @@ pub enum Error {
     InvalidData,
     InvalidEntry,
     InternalError,
-    InvalidAtime
+    InvalidAtime,
+    InvalidNlink
 }
 
 impl fmt::Display for Error {
@@ -51,7 +52,8 @@ impl fmt::Display for Error {
             Self::InvalidData => write!(f, "There is no data or data is invalid"),
             Self::InvalidEntry => write!(f, "There is no entry or entry is invalid"),
             Self::InternalError => write!(f, "Internal Error"),
-            Self::InvalidAtime => write!(f, "There is no atime or atime is invalid")
+            Self::InvalidAtime => write!(f, "There is no atime or atime is invalid"),
+            Self::InvalidNlink => write!(f, "There is no nlink or nlink is invalid")
         } 
     }
 }
