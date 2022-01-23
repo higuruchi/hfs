@@ -9,7 +9,7 @@ pub struct Attr {
     pub ctime: SystemTime,
     pub kind: FileType,
     pub perm: u16,
-    // pub nlink: u32,
+    pub nlink: u32,
     pub uid: u32,
     pub gid: u32,
     // pub rdev: u32,
@@ -35,7 +35,8 @@ pub fn new(
     gid: u32,
     atime: SystemTime,
     mtime: SystemTime,
-    ctime: SystemTime
+    ctime: SystemTime,
+    nlink: u32
 ) -> Attr {
     Attr {
         ino: ino,
@@ -47,7 +48,8 @@ pub fn new(
         gid: gid,
         atime: atime,
         mtime: mtime,
-        ctime: ctime
+        ctime: ctime,
+        nlink: nlink
     }
 }
 
@@ -96,6 +98,10 @@ impl Attr {
         self.ctime
     }
 
+    pub fn nlink(&self) -> u32 {
+        self.nlink
+    }
+
     pub fn perm_mut(&mut self) -> &mut u16 {
         &mut self.perm
     }
@@ -122,6 +128,10 @@ impl Attr {
 
     pub fn ctime_mut(&mut self) -> &mut SystemTime {
         &mut self.ctime
+    }
+
+    pub fn nlink_mut(&mut self) -> &mut u32 {
+        &mut self.nlink
     }
 }
 
