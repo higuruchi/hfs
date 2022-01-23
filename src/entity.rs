@@ -9,7 +9,8 @@ use std::{error, fmt};
 pub struct FileStruct {
     attr: HashMap<u64, attr::Attr>,
     entry: HashMap<u64, Vec<entry::Entry>>,
-    data: HashMap<u64, data::Data>
+    data: HashMap<u64, data::Data>,
+    lookup_count: HashMap<u64, u64>
 }
 
 pub fn new(attr: HashMap<u64, attr::Attr>,
@@ -19,7 +20,8 @@ pub fn new(attr: HashMap<u64, attr::Attr>,
     FileStruct {
         attr: attr,
         entry: entry,
-        data: data
+        data: data,
+        lookup_count: HashMap::new()
     }
 }
 
@@ -85,6 +87,13 @@ impl FileStruct {
         match self.data.get(ino) {
             Some(data) => return Some(data),
             None => return None
+        }
+    }
+
+    pub fn lookup_count(&self, ino: u64) -> u64 {
+        match self.lookup_count.get(&ino) {
+            Some(lc) => *lc,
+            None => 0
         }
     }
 
@@ -190,5 +199,11 @@ impl FileStruct {
         }
 
         Ok(Compare::Smaller)
+    }
+
+    pub fn update_lookupcount(&mut self, ino: u64) -> Result<(), Error> {
+        let lc = self.lookup_count.entry(ino).or_insert(0);
+        *lc += 1;
+        Ok(())
     }
 }

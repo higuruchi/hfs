@@ -13,7 +13,7 @@ struct UsecaseStruct<F: repository::File> {
 
 pub trait Usecase {
     fn init(&mut self, path: &path::Path) -> Result<()>;
-    fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr>;
+    fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<attr::Attr>;
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr>;
     fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&str>;
@@ -50,8 +50,9 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         };
     }
 
-    fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr> {
-        let entity = match &self.entity {
+    fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<attr::Attr> {
+        let attr;
+        let entity = match &mut self.entity {
             Some(entity) => entity,
             None => return None
         };
@@ -72,11 +73,12 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             };
 
             if child_attr.name == file_name {
-                return Some(child_attr);
+                attr = child_attr.clone();
+                entity.update_lookupcount(child_ino);
+                return Some(attr);
             }
         }
-
-        return None;
+        None
     }
 
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr> {

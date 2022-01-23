@@ -13,7 +13,7 @@ struct ControllerStruct<U: usecase::Usecase> {
 
 pub trait Controller {
     fn init(&mut self, config: &String) -> Result<()>;
-    fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
+    fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr>;
     fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&[u8]>;
@@ -46,7 +46,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
 		}
     }
 
-    fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr> {
+    fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr> {
         let attr = match self.usecase.lookup(parent, name) {
             Some(attr) => attr,
             None => return None
