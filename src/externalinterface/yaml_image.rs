@@ -60,18 +60,11 @@ pub fn new() -> impl worker::File {
 
 impl worker::File for YAMLImageStruct {
     fn init(&mut self, path: &path::Path) -> Result<entity::FileStruct> {
-        self.load_image(path);
-        // let entries = match self.load_entry() {
-        //     Ok(entries) => entries,
-        //     Err(e) => return Err(e.into())
-        // };
+        self.load_image(path)?;
         let entries = self.load_entry()?;
         let (attrs_res, next_ino) = self.load_attr();
-        let attrs = attrs_res?;
-        let data = match self.load_data() {
-            Ok(data) => data,
-            Err(e) => return Err(e.into())
-        };	
+        let attrs = attrs_res?;	
+        let data = self.load_data()?;
 
         return Ok(entity::new(next_ino, attrs, entries, data));
     }
