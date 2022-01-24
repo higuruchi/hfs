@@ -13,7 +13,7 @@ struct UsecaseStruct<F: repository::File> {
 
 pub trait Usecase {
     fn init(&mut self, path: &path::Path) -> Result<()>;
-    fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr>;
+    fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<attr::Attr>;
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr>;
     fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&str>;
@@ -27,6 +27,13 @@ pub trait Usecase {
         size: Option<u64>,
         atime: Option<attr::SystemTime>,
         mtime: Option<attr::SystemTime>
+    ) -> Result<attr::Attr>;
+    fn create(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32
     ) -> Result<attr::Attr>;
 }
 
@@ -50,8 +57,9 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         };
     }
 
-    fn lookup(&self, parent: u64, name: &OsStr) -> Option<&attr::Attr> {
-        let entity = match &self.entity {
+    fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<attr::Attr> {
+        let attr;
+        let entity = match &mut self.entity {
             Some(entity) => entity,
             None => return None
         };
@@ -72,11 +80,12 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             };
 
             if child_attr.name == file_name {
-                return Some(child_attr);
+                attr = child_attr.clone();
+                entity.update_lookupcount(child_ino);
+                return Some(attr);
             }
         }
-
-        return None;
+        None
     }
 
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr> {
@@ -278,6 +287,50 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         self.file_repository.write_data(ino, entity.data(&ino).unwrap().data());
         
         return Ok(attr.clone());
+    }
+
+    fn create(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32
+    ) -> Result<attr::Attr> {
+        let entity = match &mut self.entity {
+            Some(entity) => entity,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        let name_string = match name.to_str() {
+            Some(name) => name.to_string(),
+            None => return Err(entity::Error::InternalError.into())
+        };
+        let ino = entity.new_ino();
+        let attr = attr::new(
+            ino,
+            0,
+            name_string,
+            attr::FileType::TextFile,
+            mode as u16,
+            // TODO::ユーザID グループID固定値
+            1000,
+            1000,
+            attr::SystemTime::now(),
+            attr::SystemTime::now(),
+            attr::SystemTime::now(),
+            1
+        );
+
+        entity.inc_size(parent)?;
+        entity.update_attr(attr.clone());
+        entity.update_data(ino, data::new(ino, "".to_string()))?;
+        entity.insert_child_ino(parent, ino);
+
+        self.file_repository.update_attr(entity.attr(&parent).unwrap())?;
+        self.file_repository.update_attr(entity.attr(&ino).unwrap())?;
+        self.file_repository.write_data(ino, "")?;
+        self.file_repository.update_entry(ino, entity.entry(&parent).unwrap())?;
+
+        Ok(attr)
     }
 }
 

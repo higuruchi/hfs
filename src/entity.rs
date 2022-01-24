@@ -4,22 +4,29 @@ pub mod entry;
 
 use std::collections::HashMap;
 use std::{error, fmt};
+use anyhow::Result;
 
 #[derive(Debug)]
 pub struct FileStruct {
+    next_ino: u64,
+    attr: HashMap<u64, attr::Attr>,
+    entry: HashMap<u64, Vec<entry::Entry>>,
+    data: HashMap<u64, data::Data>,
+    lookup_count: HashMap<u64, u64>
+}
+
+pub fn new(
+    next_ino: u64,
     attr: HashMap<u64, attr::Attr>,
     entry: HashMap<u64, Vec<entry::Entry>>,
     data: HashMap<u64, data::Data>
-}
-
-pub fn new(attr: HashMap<u64, attr::Attr>,
-            entry: HashMap<u64, Vec<entry::Entry>>,
-            data: HashMap<u64, data::Data>
 ) -> FileStruct {
     FileStruct {
+        next_ino: next_ino,
         attr: attr,
         entry: entry,
-        data: data
+        data: data,
+        lookup_count: HashMap::new()
     }
 }
 
@@ -69,8 +76,8 @@ pub enum Compare {
 impl FileStruct {
     pub fn attr(&self, ino: &u64) -> Option<&attr::Attr> {
         match self.attr.get(ino) {
-            Some(attr) => return Some(attr),
-            None => return None
+            Some(attr) => Some(attr),
+            None => None
         }
     }
 
@@ -85,6 +92,13 @@ impl FileStruct {
         match self.data.get(ino) {
             Some(data) => return Some(data),
             None => return None
+        }
+    }
+
+    pub fn lookup_count(&self, ino: u64) -> u64 {
+        match self.lookup_count.get(&ino) {
+            Some(lc) => *lc,
+            None => 0
         }
     }
 
@@ -136,6 +150,19 @@ impl FileStruct {
         *size_p = size;
         
         return Ok(());
+    }
+
+    pub fn inc_size(&mut self, ino: u64) -> Result<u64, Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let size_p = attr.size_mut();
+        let size = *size_p + 1;
+        *size_p = size;
+
+        Ok(size)
     }
 
     pub fn update_atime(&mut self, ino: u64, st: attr::SystemTime) -> Result<(), Error> {
@@ -190,5 +217,37 @@ impl FileStruct {
         }
 
         Ok(Compare::Smaller)
+    }
+
+    pub fn update_attr(&mut self, attr: attr::Attr) -> Option<attr::Attr> {
+        self.attr.insert(attr.ino(), attr)
+    }
+
+    pub fn update_lookupcount(&mut self, ino: u64) -> Result<(), Error> {
+        let lc = self.lookup_count.entry(ino).or_insert(0);
+        *lc += 1;
+        Ok(())
+    }
+
+    pub fn new_ino(&mut self) -> u64 {
+        let next_ino = self.next_ino;
+        self.next_ino += 1;
+        next_ino
+    }
+
+    pub fn insert_child_ino(&mut self, parent_ino: u64, child_ino: u64) -> Option<&Vec<entry::Entry>> {
+        let entry = match self.entry.get_mut(&parent_ino) {
+            Some(entry) => entry,
+            None => return None
+        };
+
+        entry.push(entry::new(parent_ino, child_ino));
+
+        Some(entry)
+    }
+
+    fn insert_entry(&mut self, ino: u64) -> Option<&mut Vec<entry::Entry>> {
+        self.entry.insert(ino, Vec::new());
+        self.entry.get_mut(&ino)
     }
 }

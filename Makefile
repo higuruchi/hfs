@@ -2,7 +2,7 @@ TEST_PATH := ./tests
 CC := /usr/bin/$(CC)
 MOUNT_POINT := ./mountpoint
 
-test: $(TEST_PATH)/test
+test: $(TEST_PATH)/bin/test
 	mkdir $(MOUNT_POINT)
 
 	echo "Prepare config YAML files"
@@ -12,25 +12,25 @@ test: $(TEST_PATH)/test
 	cp ./development/config-template/image.yaml ./tests/config/image.yaml
 
 	RUST_LOG=debug ./target/debug/hfs --config-path ./tests/config/image.yaml --mountpoint $(MOUNT_POINT) &
-	$(TEST_PATH)/test $(MOUNT_POINT)/file1
+	$(TEST_PATH)/bin/test $(MOUNT_POINT)
+	touch $(MOUNT_POINT)/file2
+	ls $(MOUNT_POINT)
 	sudo umount $(MOUNT_POINT)
 	rmdir $(MOUNT_POINT)
 
-all: $(TEST_PATH)/main.o $(TEST_PATH)/error.o $(TEST_PATH)/write.o
-	$(CC) -o $(TEST_PATH)/test $(TEST_PATH)/main.o $(TEST_PATH)/error.o $(TEST_PATH)/write.o
+all: $(TEST_PATH)/bin/main.o $(TEST_PATH)/bin/error.o $(TEST_PATH)/bin/write.o
+	$(CC) -o $(TEST_PATH)/bin/test $(TEST_PATH)/bin/main.o $(TEST_PATH)/bin/error.o $(TEST_PATH)/bin/write.o
 	cargo build
 
-main.o: $(TEST_PATH)/main.c
-	$(CC) -c -o $(TEST_PATH)/main.o $(TEST_PATH)/main.c
+tests/bin/main.o: $(TEST_PATH)/main.c
+	$(CC) -c -o $(TEST_PATH)/bin/main.o $(TEST_PATH)/main.c
 
-error.o: $(TEST_PATH)/error.c
-	$(CC) -c -o $(TEST_PATH)/error.o $(TEST_PATH)/error.c
+tests/bin/error.o: $(TEST_PATH)/error.c
+	$(CC) -c -o $(TEST_PATH)/bin/error.o $(TEST_PATH)/error.c
 
-write.o: $(TEST_PATH)/write.c
-	$(CC) -c -o $(TEST_PATH)/write.o $(TEST_PATH)/write.c
+tests/bin/write.o: $(TEST_PATH)/write.c
+	$(CC) -c -o $(TEST_PATH)/bin/write.o $(TEST_PATH)/write.c
 
-clean: $(TEST_PATH)/*.o
-	rm $(TEST_PATH)/*.o
-
-clean-all: $(TEST_PATH)/test $(TEST_PATH)/*.o
-	rm $(TEST_PATH)/*.o $(TEST_PATH)/test
+clean: $(TEST_PATH)/*.o $(TEST_PATH)/bin/test
+	rm $(TEST_PATH)/bin/*.o
+	rm $(TEST_PATH)/bin/test

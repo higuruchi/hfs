@@ -7,7 +7,8 @@ use fuse::{
     ReplyData,
     ReplyDirectory,
     Request,
-    ReplyWrite
+    ReplyWrite,
+    ReplyCreate
 };
 use std::ffi::OsStr;
 use time;
@@ -129,6 +130,28 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
         match self.controller.setattr(ino, mode, uid, gid, size, atime, mtime) {
             Ok(attr) => reply.attr(&time::Timespec{sec: 1, nsec: 0}, &attr),
             Err(_) => reply.error(libc::ENOENT)
+        }
+    }
+
+    fn create(
+        &mut self,
+        _req: &Request<'_>,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32,
+        reply: ReplyCreate
+    ) {
+        // すでにあるかチェック
+        // なかった場合modeを指定して作成
+        match self.controller.lookup(parent, name) {
+            Some(attr) => reply.created(&time::Timespec{sec: 1, nsec: 0}, &attr , 0, 0, 0),
+            None => {
+                match self.controller.create(parent, name, mode, flags) {
+                    Ok(attr) => reply.created(&time::Timespec{sec: 1, nsec: 0}, &attr , 0, 0, 0),
+                    Err(_) => reply.error(libc::ENOENT)
+                }
+            }
         }
     }
 }

@@ -60,21 +60,13 @@ pub fn new() -> impl worker::File {
 
 impl worker::File for YAMLImageStruct {
     fn init(&mut self, path: &path::Path) -> Result<entity::FileStruct> {
-        self.load_image(path);
-        let entries = match self.load_entry() {
-            Ok(entries) => entries,
-            Err(e) => return Err(e.into())
-        };
-        let attrs = match self.load_attr() {
-            Ok(attrs) => attrs,
-            Err(e) => return Err(e.into())
-        };
-        let data = match self.load_data() {
-            Ok(data) => data,
-            Err(e) => return Err(e.into())
-        };	
+        self.load_image(path)?;
+        let entries = self.load_entry()?;
+        let (attrs_res, next_ino) = self.load_attr();
+        let attrs = attrs_res?;	
+        let data = self.load_data()?;
 
-        return Ok(entity::new(attrs, entries, data));
+        return Ok(entity::new(next_ino, attrs, entries, data));
     }
 
     fn write_data(&self, ino: u64, data: &str) -> Result<()> {
@@ -134,6 +126,29 @@ impl worker::File for YAMLImageStruct {
                 attr.nlink()
             ).as_str()
         );
+        file.write_all(&content.into_bytes());
+        return Ok(());
+    }
+
+    fn update_entry(&self, ino: u64, child_inos: &Vec<entry::Entry>) -> Result<()> {
+        let entry_path = match self.entry.to_str() {
+            Some(entry_path) => entry_path,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        let mut content = match fs::read_to_string(entry_path) {
+            Ok(content) => content,
+            Err(e) => return Err(e.into())
+        };
+        let mut file = match File::create(entry_path) {
+            Ok(f) => f,
+            Err(e) => return Err(e.into())
+        };
+
+        content.push_str(format!("- ino: {}\n  files:\n", ino).as_str());
+        for entry in child_inos {
+            content.push_str(format!("    - {}\n", entry.child_ino()).as_str());
+        }
+
         file.write_all(&content.into_bytes());
         return Ok(());
     }
@@ -242,30 +257,31 @@ impl YAMLImageStruct {
         return Ok(entrie_hash);
     }
 
-    fn load_attr(&self) -> Result<HashMap<u64, attr::Attr>> {
+    fn load_attr(&self) -> (Result<HashMap<u64, attr::Attr>>, u64) {
         let mut file = match File::open(&self.attr) {
             Ok(file) => file,
-            Err(e) => return Err(e.into())
+            Err(e) => return (Err(e.into()), 0)
         };
         let mut config = String::new();
         match file.read_to_string(&mut config) {
             Ok(_) => {}
-            Err(e) => return Err(e.into())
+            Err(e) => return (Err(e.into()), 0)
         };
         let docs = match YamlLoader::load_from_str(&config) {
             Ok(docs) => docs,
-            Err(e) => return Err(e.into())
+            Err(e) => return (Err(e.into()), 0)
         };
         let mut attrs_hash = HashMap::new();
+        let mut next_ino = 0;
         
         for attr_data in docs[0].as_vec().unwrap() {
             let ino = match &attr_data[INO] {
                 Yaml::Integer(i) => *i as u64,
-                _ => return Err(entity::Error::InvalidINO.into())
+                _ => return (Err(entity::Error::InvalidINO.into()), 0)
             };
             let name = match &attr_data[NAME] {
                 Yaml::String(s) => s.clone(),
-                _ => return Err(entity::Error::InvalidName.into())
+                _ => return (Err(entity::Error::InvalidName.into()), 0)
             };
             let file_type = match &attr_data[FILE_TYPE] {
                 Yaml::Integer(i) =>{
@@ -275,25 +291,25 @@ impl YAMLImageStruct {
                         _ => attr::FileType::TextFile
                     }
                 },
-                _ => return Err(entity::Error::InvalidFileType.into())
+                _ => return (Err(entity::Error::InvalidFileType.into()), 0)
             };
             let size = match &attr_data[SIZE] {
                 Yaml::Integer(i) => {
                     *i as u64
                 },
-                _ => return Err(entity::Error::InvalidSize.into())
+                _ => return (Err(entity::Error::InvalidSize.into()), 0)
             };
             let uid = match &attr_data[UID] {
                 Yaml::Integer(i) => *i as u32,
-                _ => return Err(entity::Error::InvalidUID.into())
+                _ => return (Err(entity::Error::InvalidUID.into()), 0)
             };
             let gid = match &attr_data[GID] {
                 Yaml::Integer(i) => *i as u32,
-                _ => return Err(entity::Error::InvalidGID.into())
+                _ => return (Err(entity::Error::InvalidGID.into()), 0)
             };
             let perm = match &attr_data[PERM] {
                 Yaml::Integer(i) => *i as u16,
-                _ => return Err(entity::Error::InvalidPERM.into())
+                _ => return (Err(entity::Error::InvalidPERM.into()), 0)
             };
             let atime = match &attr_data[ATIME] {
                 Yaml::String(s) => {
@@ -304,7 +320,7 @@ impl YAMLImageStruct {
 
                     attr::SystemTime(secs,nanos)
                 },
-                _ => return Err(entity::Error::InvalidAtime.into())
+                _ => return (Err(entity::Error::InvalidAtime.into()), 0)
             };
             let mtime = match &attr_data[MTIME] {
                 Yaml::String(s) => {
@@ -315,7 +331,7 @@ impl YAMLImageStruct {
 
                     attr::SystemTime(secs,nanos)
                 },
-                _ => return Err(entity::Error::InvalidAtime.into())
+                _ => return (Err(entity::Error::InvalidAtime.into()), 0)
             };
             let ctime = match &attr_data[CTIME] {
                 Yaml::String(s) => {
@@ -326,18 +342,22 @@ impl YAMLImageStruct {
 
                     attr::SystemTime(secs,nanos)
                 },
-                _ => return Err(entity::Error::InvalidAtime.into())
+                _ => return (Err(entity::Error::InvalidAtime.into()), 0)
             };
 
             let nlink = match &attr_data[NLINK] {
                 Yaml::Integer(i) => *i as u32,
-                _ => return Err(entity::Error::InvalidNlink.into())
+                _ => return (Err(entity::Error::InvalidNlink.into()), 0)
             };
+
+            if ino >= next_ino {
+                next_ino = ino + 1;
+            }
             
             attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid, atime, mtime, ctime, nlink));
         }
 
-        return Ok(attrs_hash);
+        return (Ok(attrs_hash), next_ino);
     }
     
     fn load_data(&self) -> Result<HashMap<u64, data::Data>> {

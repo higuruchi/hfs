@@ -1,4 +1,4 @@
 /target
-/tests/*.o
-/tests/test
+/tests/bin/*.o
+/tests/bin/test
 /tests/config/*.yaml

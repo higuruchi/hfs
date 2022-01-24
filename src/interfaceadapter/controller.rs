@@ -13,7 +13,7 @@ struct ControllerStruct<U: usecase::Usecase> {
 
 pub trait Controller {
     fn init(&mut self, config: &String) -> Result<()>;
-    fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
+    fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr>;
     fn getattr(&self, ino: u64) -> Option<fuse::FileAttr>;
     fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, fuse::FileType)>>;
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&[u8]>;
@@ -27,6 +27,13 @@ pub trait Controller {
         size: Option<u64>,
         atime: Option<time::Timespec>,
         mtime: Option<time::Timespec>
+    ) -> Result<fuse::FileAttr>;
+    fn create(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32
     ) -> Result<fuse::FileAttr>;
 }
 
@@ -46,7 +53,7 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
 		}
     }
 
-    fn lookup(&self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr> {
+    fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<fuse::FileAttr> {
         let attr = match self.usecase.lookup(parent, name) {
             Some(attr) => attr,
             None => return None
@@ -194,6 +201,40 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             rdev: 0,
             flags: 0,
         });
+    }
+
+    fn create(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32
+    ) -> Result<fuse::FileAttr> {
+        let attr = match self.usecase.create(parent, name, mode, flags) {
+            Ok(attr) => attr,
+            Err(e) => return Err(e) 
+        };
+        let file_type = match attr.file_type() {
+			attr::FileType::Directory => fuse::FileType::Directory,
+			attr::FileType::TextFile => fuse::FileType::RegularFile
+		};
+
+        Ok(fuse::FileAttr{
+            ino: attr.ino(),
+            size: attr.size(),
+            blocks: 0,
+            atime: timespeck(attr.atime()),
+            mtime: timespeck(attr.mtime()),
+            ctime: timespeck(attr.ctime()),
+            crtime: time::now().to_timespec(),
+            kind: file_type,
+            perm: attr.perm(),
+            nlink: attr.nlink(),
+            uid: attr.uid(),
+            gid: attr.gid(),
+            rdev: 0,
+            flags: 0,
+        })
     }
 }
 
