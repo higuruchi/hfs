@@ -320,11 +320,12 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             1
         );
 
-
+        entity.inc_size(parent)?;
         entity.update_attr(attr.clone());
         entity.update_data(ino, data::new(ino, "".to_string()))?;
         entity.insert_child_ino(parent, ino);
 
+        self.file_repository.update_attr(entity.attr(&parent).unwrap())?;
         self.file_repository.update_attr(entity.attr(&ino).unwrap())?;
         self.file_repository.write_data(ino, "")?;
         self.file_repository.update_entry(ino, entity.entry(&parent).unwrap())?;

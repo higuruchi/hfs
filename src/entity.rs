@@ -4,6 +4,7 @@ pub mod entry;
 
 use std::collections::HashMap;
 use std::{error, fmt};
+use anyhow::Result;
 
 #[derive(Debug)]
 pub struct FileStruct {
@@ -75,8 +76,8 @@ pub enum Compare {
 impl FileStruct {
     pub fn attr(&self, ino: &u64) -> Option<&attr::Attr> {
         match self.attr.get(ino) {
-            Some(attr) => return Some(attr),
-            None => return None
+            Some(attr) => Some(attr),
+            None => None
         }
     }
 
@@ -149,6 +150,19 @@ impl FileStruct {
         *size_p = size;
         
         return Ok(());
+    }
+
+    pub fn inc_size(&mut self, ino: u64) -> Result<u64, Error> {
+        let attr = match self.attr.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError)
+        };
+
+        let size_p = attr.size_mut();
+        let size = *size_p + 1;
+        *size_p = size;
+
+        Ok(size)
     }
 
     pub fn update_atime(&mut self, ino: u64, st: attr::SystemTime) -> Result<(), Error> {
