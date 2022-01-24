@@ -13,6 +13,8 @@ test: $(TEST_PATH)/test
 
 	RUST_LOG=debug ./target/debug/hfs --config-path ./tests/config/image.yaml --mountpoint $(MOUNT_POINT) &
 	$(TEST_PATH)/test $(MOUNT_POINT)/file1
+	touch $(MOUNT_POINT)/file2
+	ls $(MOUNT_POINT)
 	sudo umount $(MOUNT_POINT)
 	rmdir $(MOUNT_POINT)
 

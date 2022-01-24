@@ -7,17 +7,21 @@ use std::{error, fmt};
 
 #[derive(Debug)]
 pub struct FileStruct {
+    next_ino: u64,
     attr: HashMap<u64, attr::Attr>,
     entry: HashMap<u64, Vec<entry::Entry>>,
     data: HashMap<u64, data::Data>,
     lookup_count: HashMap<u64, u64>
 }
 
-pub fn new(attr: HashMap<u64, attr::Attr>,
-            entry: HashMap<u64, Vec<entry::Entry>>,
-            data: HashMap<u64, data::Data>
+pub fn new(
+    next_ino: u64,
+    attr: HashMap<u64, attr::Attr>,
+    entry: HashMap<u64, Vec<entry::Entry>>,
+    data: HashMap<u64, data::Data>
 ) -> FileStruct {
     FileStruct {
+        next_ino: next_ino,
         attr: attr,
         entry: entry,
         data: data,
@@ -201,9 +205,35 @@ impl FileStruct {
         Ok(Compare::Smaller)
     }
 
+    pub fn update_attr(&mut self, attr: attr::Attr) -> Option<attr::Attr> {
+        self.attr.insert(attr.ino(), attr)
+    }
+
     pub fn update_lookupcount(&mut self, ino: u64) -> Result<(), Error> {
         let lc = self.lookup_count.entry(ino).or_insert(0);
         *lc += 1;
         Ok(())
+    }
+
+    pub fn new_ino(&mut self) -> u64 {
+        let next_ino = self.next_ino;
+        self.next_ino += 1;
+        next_ino
+    }
+
+    pub fn insert_child_ino(&mut self, parent_ino: u64, child_ino: u64) -> Option<&Vec<entry::Entry>> {
+        let entry = match self.entry.get_mut(&parent_ino) {
+            Some(entry) => entry,
+            None => return None
+        };
+
+        entry.push(entry::new(parent_ino, child_ino));
+
+        Some(entry)
+    }
+
+    fn insert_entry(&mut self, ino: u64) -> Option<&mut Vec<entry::Entry>> {
+        self.entry.insert(ino, Vec::new());
+        self.entry.get_mut(&ino)
     }
 }

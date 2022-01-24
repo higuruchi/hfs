@@ -28,6 +28,13 @@ pub trait Controller {
         atime: Option<time::Timespec>,
         mtime: Option<time::Timespec>
     ) -> Result<fuse::FileAttr>;
+    fn create(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32
+    ) -> Result<fuse::FileAttr>;
 }
 
 pub fn new<U>(usecase: U) -> impl Controller
@@ -194,6 +201,40 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             rdev: 0,
             flags: 0,
         });
+    }
+
+    fn create(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32
+    ) -> Result<fuse::FileAttr> {
+        let attr = match self.usecase.create(parent, name, mode, flags) {
+            Ok(attr) => attr,
+            Err(e) => return Err(e) 
+        };
+        let file_type = match attr.file_type() {
+			attr::FileType::Directory => fuse::FileType::Directory,
+			attr::FileType::TextFile => fuse::FileType::RegularFile
+		};
+
+        Ok(fuse::FileAttr{
+            ino: attr.ino(),
+            size: attr.size(),
+            blocks: 0,
+            atime: timespeck(attr.atime()),
+            mtime: timespeck(attr.mtime()),
+            ctime: timespeck(attr.ctime()),
+            crtime: time::now().to_timespec(),
+            kind: file_type,
+            perm: attr.perm(),
+            nlink: attr.nlink(),
+            uid: attr.uid(),
+            gid: attr.gid(),
+            rdev: 0,
+            flags: 0,
+        })
     }
 }
 

@@ -28,6 +28,13 @@ pub trait Usecase {
         atime: Option<attr::SystemTime>,
         mtime: Option<attr::SystemTime>
     ) -> Result<attr::Attr>;
+    fn create(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32
+    ) -> Result<attr::Attr>;
 }
 
 pub fn new<F>(file_repository: F) -> impl Usecase 
@@ -280,6 +287,49 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         self.file_repository.write_data(ino, entity.data(&ino).unwrap().data());
         
         return Ok(attr.clone());
+    }
+
+    fn create(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        flags: u32
+    ) -> Result<attr::Attr> {
+        let entity = match &mut self.entity {
+            Some(entity) => entity,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        let name_string = match name.to_str() {
+            Some(name) => name.to_string(),
+            None => return Err(entity::Error::InternalError.into())
+        };
+        let ino = entity.new_ino();
+        let attr = attr::new(
+            ino,
+            0,
+            name_string,
+            attr::FileType::TextFile,
+            mode as u16,
+            // TODO::ユーザID グループID固定値
+            1000,
+            1000,
+            attr::SystemTime::now(),
+            attr::SystemTime::now(),
+            attr::SystemTime::now(),
+            1
+        );
+
+
+        entity.update_attr(attr.clone());
+        entity.update_data(ino, data::new(ino, "".to_string()))?;
+        entity.insert_child_ino(parent, ino);
+
+        self.file_repository.update_attr(entity.attr(&ino).unwrap())?;
+        self.file_repository.write_data(ino, "")?;
+        self.file_repository.update_entry(ino, entity.entry(&parent).unwrap())?;
+
+        Ok(attr)
     }
 }
 
