@@ -199,21 +199,21 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         };
         let len: u64 = new_text_data.len() as u64;
 
-        self.file_repository.write_data(ino, new_text_data.as_str());
+        self.file_repository.write_data(ino, new_text_data.as_str())?;
         
         let st = attr::SystemTime::now();
         let data = data::new(ino, new_text_data);
 
-        entity.update_data(ino, data);
-        entity.update_size(ino, len);
-        entity.update_mtime(ino, st);
-        entity.update_ctime(ino, st);
+        entity.update_data(ino, data)?;
+        entity.update_size(ino, len)?;
+        entity.update_mtime(ino, st)?;
+        entity.update_ctime(ino, st)?;
 
         let attr = match entity.attr(&ino) {
             Some(attr) => attr,
             None => return Err(entity::Error::InternalError.into())
         };
-        self.file_repository.update_attr(&attr);
+        self.file_repository.update_attr(&attr)?;
 
         return Ok(len);
     }
@@ -228,13 +228,6 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         atime: Option<attr::SystemTime>,
         mtime: Option<attr::SystemTime>
     ) -> Result<attr::Attr> {
-        // TODO:
-        // sizeが元のファイルサイズより小さい0以外の値が指定された場合、
-        // 残すべきデータは残しつつ、いらないデータがきちんと破壊されるようにする
-
-        // TODO:
-        // 元のファイルサイズより大きい値が指定された場合、
-        // 間のデータが0(\0)で埋められるようにする
         let imu_entity = match &self.entity {
             Some(entity) => entity,
             None => return Err(entity::Error::InternalError.into()) 
@@ -244,15 +237,15 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             match imu_entity.cmp_data_size(ino, n) {
                 Ok(c) =>  {
                     match c {
-                        Smaller => {
+                        entity::Compare::Smaller => {
                             // ずるしてます
                             new_data = smaller_data(imu_entity.data(&ino).unwrap().data(), n);
                         },
-                        Begger => {
+                        entity::Compare::Begger => {
                             // ずるしてます
                             new_data = begger_data(imu_entity.data(&ino).unwrap().data(), n);
                         },
-                        Equal => {
+                        entity::Compare::Equal => {
                             // 無駄な処理
                             // ずるしてます
                             new_data = imu_entity.data(&ino).unwrap().data().to_string();
@@ -268,23 +261,23 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             None => return Err(entity::Error::InternalError.into()) 
         };
 
-        if let Some(n) = mode { entity.update_perm(ino, n as u16); };
-        if let Some(n) = uid { entity.update_uid(ino, n); };
-        if let Some(n) = gid { entity.update_gid(ino, n); };
+        if let Some(n) = mode { entity.update_perm(ino, n as u16)?; };
+        if let Some(n) = uid { entity.update_uid(ino, n)?; };
+        if let Some(n) = gid { entity.update_gid(ino, n)?; };
         if let Some(n) = size {
-            entity.update_data(ino, data::new(ino, new_data));
-            entity.update_size(ino, n);
+            entity.update_data(ino, data::new(ino, new_data))?;
+            entity.update_size(ino, n)?;
         };
-        if let Some(n) = atime { entity.update_atime(ino, n); };
-        if let Some(n) = mtime { entity.update_mtime(ino, n); };
+        if let Some(n) = atime { entity.update_atime(ino, n)?; };
+        if let Some(n) = mtime { entity.update_mtime(ino, n)?; };
 
         let attr = match entity.attr(&ino) {
             Some(attr) => attr,
             None => return Err(entity::Error::InternalError.into())
         };
-        self.file_repository.update_attr(attr);
+        self.file_repository.update_attr(attr)?;
         // ずるしてます
-        self.file_repository.write_data(ino, entity.data(&ino).unwrap().data());
+        self.file_repository.write_data(ino, entity.data(&ino).unwrap().data())?;
         
         return Ok(attr.clone());
     }
