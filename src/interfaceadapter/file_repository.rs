@@ -1,6 +1,6 @@
 use std::path;
 use crate::usecase::repository::File;
-use crate::entity::{self, attr, entry};
+use crate::entity::{self, attr, entry, data};
 use crate::interfaceadapter::{worker};
 use anyhow::Result;
 
@@ -17,31 +17,19 @@ pub fn new<F>(file_worker: F) -> impl File
 }
 
 impl<F: worker::File> File for FileRepositoryStruct<F> {
-    fn init(&mut self, path: &path::Path) -> Result<entity::FileStruct> {
-        match self.file_worker.init(path) {
-            Ok(files) => Ok(files),
-            Err(e) => Err(e)
-        }
+    fn init(&mut self, path: &path::Path) -> Result<(u64, attr::AttrsStruct, entry::EntriesStruct, data::AllDataStruct)> {
+        self.file_worker.init(path)
     }
 
     fn write_data(&self, ino: u64, data: &str) -> Result<()> {
-        match self.file_worker.write_data(ino, data) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into())
-        }
+        self.file_worker.write_data(ino, data)
     }
 
     fn update_attr(&self, attr: &attr::Attr) -> Result<()> {
-        match self.file_worker.update_attr(attr) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into())
-        }
+        self.file_worker.update_attr(attr)
     }
 
     fn update_entry(&self, ino: u64, child_inos: &Vec<entry::Entry>) -> Result<()> {
-        match self.file_worker.update_entry(ino, child_inos) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into())
-        }
+        self.file_worker.update_entry(ino, child_inos)
     }
 }

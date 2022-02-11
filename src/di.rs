@@ -8,7 +8,7 @@ use crate::{
 use fuse;
 
 pub fn initialize(config: config::Config) -> Result<impl fuse::Filesystem , ()> {
-    let yaml_image = externalinterface::yaml_image::new();
+    let yaml_image = externalinterface::yaml_image::YAMLImageStruct::new();
     let file_repository = file_repository::new(yaml_image);
     let usecase = usecase::new(file_repository);
     let controller = controller::new(usecase);
