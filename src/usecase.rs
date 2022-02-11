@@ -244,6 +244,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             None => return Err(entity::Error::InternalError.into())
         }
 
+
         Ok(new_text_data_len)
     }
 
@@ -313,6 +314,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
                             }
                         },
                         Err(_) => return Err(entity::Error::InternalError.into())
+
                     }
                 }
             },
@@ -342,6 +344,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             None => return Err(entity::Error::InternalError.into())
         }
 
+
         // 返却
         let attr_data = match self.attr() {
             Some(attr) => match attr.attr(ino) {
@@ -351,6 +354,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             None => return Err(entity::Error::InternalError.into())
         };
         Ok(attr_data)
+
     }
 
     fn create(

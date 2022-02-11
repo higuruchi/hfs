@@ -65,17 +65,12 @@ impl worker::File for YAMLImageStruct {
             Some(data_path) => data_path,
             None => return Err(entity::Error::InternalError.into())
         };
-        let mut content = match fs::read_to_string(data_path) {
-            Ok(content) => content,
-            Err(e) => return Err(e.into())
-        };
-        let mut file = match File::create(data_path) {
-            Ok(f) => f,
-            Err(e) => return Err(e.into())
-        };
 
-        content.push_str(format!("- ino: {}\n  data: {:?}\n", ino, data).as_str());
-        file.write_all(&content.into_bytes());
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(data_path)?;
+
+        file.write_all(format!("- ino: {}\n  data: {:?}\n", ino, data).as_bytes())?;
         return Ok(());
     }
 
@@ -84,21 +79,15 @@ impl worker::File for YAMLImageStruct {
             Some(attr_path) => attr_path,
             None => return Err(entity::Error::InternalError.into())
         };
-        let mut content = match fs::read_to_string(attr_path) {
-            Ok(content) => content,
-            Err(e) => return Err(e.into())
-        };
-        let mut file = match File::create(attr_path) {
-            Ok(f) => f,
-            Err(e) => return Err(e.into())
-        };
-
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(attr_path)?;
         let file_type = match attr.file_type() {
             attr::FileType::TextFile => 1,
             attr::FileType::Directory => 0
         };
 
-        content.push_str(
+        file.write_all(
             format!(
                 "- ino: {}\n  name: {}\n  file-type: {}\n  size: {}\n  uid: {}\n  gid: {}\n  perm: 0o{:o}\n  atime: \"{}.{}\"\n  mtime: \"{}.{}\"\n  ctime: \"{}.{}\"\n  nlink: {}\n",
                 attr.ino(),
@@ -115,9 +104,8 @@ impl worker::File for YAMLImageStruct {
                 attr.ctime.as_secs(),
                 attr.ctime.subsec_nanos(),
                 attr.nlink()
-            ).as_str()
-        );
-        file.write_all(&content.into_bytes());
+            ).as_bytes()
+        )?;
         return Ok(());
     }
 
@@ -126,21 +114,15 @@ impl worker::File for YAMLImageStruct {
             Some(entry_path) => entry_path,
             None => return Err(entity::Error::InternalError.into())
         };
-        let mut content = match fs::read_to_string(entry_path) {
-            Ok(content) => content,
-            Err(e) => return Err(e.into())
-        };
-        let mut file = match File::create(entry_path) {
-            Ok(f) => f,
-            Err(e) => return Err(e.into())
-        };
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(entry_path)?;
 
-        content.push_str(format!("- ino: {}\n  files:\n", ino).as_str());
+        file.write_all(format!("- ino: {}\n  files:\n", ino).as_bytes())?;
         for entry in child_inos {
-            content.push_str(format!("    - {}\n", entry.child_ino()).as_str());
+            file.write_all(format!("    - {}\n", entry.child_ino()).as_str().as_bytes())?;
         }
 
-        file.write_all(&content.into_bytes());
         return Ok(());
     }
 }
