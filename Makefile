@@ -11,9 +11,10 @@ test: $(TEST_PATH)/bin/test
 	cp ./development/config-template/entry.yaml ./tests/config/entry.yaml
 	cp ./development/config-template/image.yaml ./tests/config/image.yaml
 
+	# ./target/debug/hfs --config-path ./tests/config/image.yaml --mountpoint $(MOUNT_POINT) &
 	RUST_LOG=debug ./target/debug/hfs --config-path ./tests/config/image.yaml --mountpoint $(MOUNT_POINT) &
-	$(TEST_PATH)/bin/test $(MOUNT_POINT)
-	touch $(MOUNT_POINT)/file2
+	$(TEST_PATH)/bin/test $(MOUNT_POINT)/file1
+	touch $(MOUNT_POINT)/file3
 	ls $(MOUNT_POINT)
 	sudo umount $(MOUNT_POINT)
 	rmdir $(MOUNT_POINT)

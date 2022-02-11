@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::{error, fmt};
+use anyhow::Result;
+
 #[derive(Debug, Clone)]
 pub struct Attr {
     pub ino: u64,
@@ -25,35 +29,59 @@ pub enum FileType {
 #[derive(Clone, Copy, Debug)]
 pub struct SystemTime(pub u64, pub u32);
 
-pub fn new(
-    ino: u64,
-    size: u64,
-    name: String,
-    kind: FileType,
-    perm: u16,
-    uid: u32,
-    gid: u32,
-    atime: SystemTime,
-    mtime: SystemTime,
-    ctime: SystemTime,
-    nlink: u32
-) -> Attr {
-    Attr {
-        ino: ino,
-        size: size,
-        name: name,
-        kind: kind,
-        perm: perm,
-        uid: uid,
-        gid: gid,
-        atime: atime,
-        mtime: mtime,
-        ctime: ctime,
-        nlink: nlink
+#[derive(Debug)]
+pub struct AttrsStruct {
+    attrs: HashMap<u64, Attr>,
+}
+pub trait Attrs {}
+
+pub enum Error {
+    InternalError
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt ::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InternalError => write!(f, "Internal Error"),
+        } 
     }
 }
 
+pub enum Compare {
+    Equal,
+    Begger,
+    Smaller
+}
+
 impl Attr {
+    pub fn new(
+        ino: u64,
+        size: u64,
+        name: String,
+        kind: FileType,
+        perm: u16,
+        uid: u32,
+        gid: u32,
+        atime: SystemTime,
+        mtime: SystemTime,
+        ctime: SystemTime,
+        nlink: u32
+    ) -> Attr {
+        Attr {
+            ino: ino,
+            size: size,
+            name: name,
+            kind: kind,
+            perm: perm,
+            uid: uid,
+            gid: gid,
+            atime: atime,
+            mtime: mtime,
+            ctime: ctime,
+            nlink: nlink
+        }
+    }
+
     pub fn ino(&self) -> u64 {
         self.ino
     }
@@ -157,3 +185,136 @@ impl SystemTime {
         return self.1
     }
 }
+
+impl AttrsStruct {
+    pub fn new(attrs: HashMap<u64, Attr>) -> AttrsStruct {
+        AttrsStruct{
+            attrs: attrs,
+        }
+    }
+
+    pub fn attr(&self, ino: u64) -> Option<&Attr> {
+        match self.attrs.get(&ino) {
+            Some(attr) => Some(attr),
+            None => None
+        }
+    }
+
+    pub fn update_atime(&mut self, ino: u64, st: SystemTime) -> Result<(), Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+        let atime = attr.atime_mut();
+        *atime = st;
+
+        return Ok(());
+    }
+
+    pub fn update_size(&mut self, ino: u64, size: u64) -> Result<(), Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+        let size_p = attr.size_mut();
+        *size_p = size;
+        
+        return Ok(());
+    }
+
+    pub fn update_mtime(&mut self, ino: u64, st: SystemTime) -> Result<(), Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+        let mtime = attr.mtime_mut();
+        *mtime = st;
+
+        return Ok(());
+    }
+
+    pub fn update_ctime(&mut self, ino: u64, st: SystemTime) -> Result<(), Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+        let ctime = attr.ctime_mut();
+        *ctime = st;
+
+        return Ok(());
+    }
+
+    pub fn inc_size(&mut self, ino: u64) -> Result<u64, Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+
+        let size_p = attr.size_mut();
+        let size = *size_p + 1;
+        *size_p = size;
+
+        Ok(size)
+    }
+
+    pub fn update_attr(&mut self, attr: Attr) -> Option<Attr> {
+        self.attrs.insert(attr.ino(), attr)
+    }
+
+    pub fn update_perm(&mut self, ino: u64, perm: u16) -> Result<(), Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+
+        let perm_p = attr.perm_mut();
+        *perm_p = perm;
+
+        return Ok(());
+    }
+
+    pub fn update_uid(&mut self, ino: u64, uid: u32) -> Result<(), Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+
+        let uid_p = attr.uid_mut();
+        *uid_p = uid;
+        return Ok(());
+    }
+
+    pub fn update_gid(&mut self, ino: u64, gid: u32) -> Result<(), Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+
+        let gid_p = attr.gid_mut();
+        *gid_p = gid;
+        return Ok(());
+    }
+
+    // ino > size -> Begger
+    // ino == size -> Equal
+    // ino < size -> Smaller
+    pub fn cmp_data_size(&self, ino: u64, size: u64) -> Result<Compare, Error> {
+        let attr = match self.attrs.get(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+
+        let ino_size = attr.size();
+
+        if ino_size > size {
+            return Ok(Compare::Begger);
+        }
+        if ino_size == size {
+            return Ok(Compare::Equal);
+        }
+
+        Ok(Compare::Smaller)
+    }
+}
+
+impl Attrs for AttrsStruct {}

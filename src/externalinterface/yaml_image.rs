@@ -17,7 +17,7 @@ use crate::interfaceadapter::worker;
 use anyhow::Result;
 
 #[derive(Debug)]
-struct YAMLImageStruct {
+pub struct YAMLImageStruct {
     entry: path::PathBuf,
     attr: path::PathBuf,
     data: path::PathBuf
@@ -49,24 +49,15 @@ const DATA_DEFAULT_PATH: &str = "/etc/data.yaml";
 const DIRECTORY: u64 = 0;
 const TXTFILE: u64 = 1;
 
-
-pub fn new() -> impl worker::File {
-    YAMLImageStruct{
-        attr: path::PathBuf::from(ATTR_DEFAULT_PATH),
-        entry: path::PathBuf::from(ENTRY_DEFAULT_PATH),
-        data: path::PathBuf::from(DATA_DEFAULT_PATH)
-    }
-}
-
 impl worker::File for YAMLImageStruct {
-    fn init(&mut self, path: &path::Path) -> Result<entity::FileStruct> {
+    fn init(&mut self, path: &path::Path) -> Result<(u64, attr::AttrsStruct, entry::EntriesStruct, data::AllDataStruct)> {
         self.load_image(path)?;
-        let entries = self.load_entry()?;
+        let entries = entry::EntriesStruct::new(self.load_entry()?);
         let (attrs_res, next_ino) = self.load_attr();
-        let attrs = attrs_res?;	
-        let data = self.load_data()?;
-
-        return Ok(entity::new(next_ino, attrs, entries, data));
+        let attrs = attr::AttrsStruct::new(attrs_res?);
+        let data = data::AllDataStruct::new(self.load_data()?);
+        
+        Ok((next_ino, attrs, entries, data))
     }
 
     fn write_data(&self, ino: u64, data: &str) -> Result<()> {
@@ -137,6 +128,14 @@ impl worker::File for YAMLImageStruct {
 }
 
 impl YAMLImageStruct {
+    pub fn new() -> impl worker::File {
+        YAMLImageStruct{
+            attr: path::PathBuf::from(ATTR_DEFAULT_PATH),
+            entry: path::PathBuf::from(ENTRY_DEFAULT_PATH),
+            data: path::PathBuf::from(DATA_DEFAULT_PATH)
+        }
+    }
+    
     fn load_image(&mut self, path: &path::Path) -> Result<()> {
         let mut file = match File::open(path) {
             Ok(file) => file,
@@ -227,7 +226,7 @@ impl YAMLImageStruct {
                             _ => return Err(entity::Error::InvalidINO.into())
                         };
 
-                        entries.push(entry::new(ino, child_ino));
+                        entries.push(entry::Entry::new(ino, child_ino));
                     }
                 },
                 _ => {}
@@ -336,7 +335,7 @@ impl YAMLImageStruct {
                 next_ino = ino + 1;
             }
             
-            attrs_hash.insert(ino, attr::new(ino, size, name, file_type, perm, uid, gid, atime, mtime, ctime, nlink));
+            attrs_hash.insert(ino, attr::Attr::new(ino, size, name, file_type, perm, uid, gid, atime, mtime, ctime, nlink));
         }
 
         return (Ok(attrs_hash), next_ino);
@@ -372,7 +371,7 @@ impl YAMLImageStruct {
                 _ => return Err(entity::Error::InvalidData.into())
             };
             
-            data_hash.insert(ino, data::new(ino, text_data));
+            data_hash.insert(ino, data::Data::new(ino, text_data));
         }
 
         return Ok(data_hash);

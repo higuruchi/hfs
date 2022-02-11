@@ -1,13 +1,18 @@
 pub mod repository;
 
+use std::collections::HashMap;
 use std::path;
 use std::ffi::OsStr;
 use anyhow::Result;
-use crate::entity::{self, attr, data};
+use crate::entity::{self, attr, data, entry, lookup_count};
 
 #[derive(Debug)]
 struct UsecaseStruct<F: repository::File> {
-    entity: Option<entity::FileStruct>,
+    next_ino: Option<u64>,
+    attr: Option<attr::AttrsStruct>,
+    entry: Option<entry::EntriesStruct>,
+    data: Option<data::AllDataStruct>,
+    lookup_count: Option<lookup_count::LookupCount>,
     file_repository: F
 }
 
@@ -35,13 +40,18 @@ pub trait Usecase {
         mode: u32,
         flags: u32
     ) -> Result<attr::Attr>;
+    fn new_ino(&mut self) -> u64;
 }
 
 pub fn new<F>(file_repository: F) -> impl Usecase 
     where F: repository::File
 {
     UsecaseStruct{
-        entity: None,
+        next_ino: None,
+        attr: None,
+        entry: None,
+        data: None,
+        lookup_count: None,
         file_repository: file_repository
     }
 }
@@ -49,8 +59,12 @@ pub fn new<F>(file_repository: F) -> impl Usecase
 impl<F: repository::File> Usecase for UsecaseStruct<F> {
     fn init(&mut self, path: &path::Path) -> Result<()> {
        match self.file_repository.init(path) {
-            Ok(file_struct) => {
-                self.entity = Some(file_struct);
+            Ok(files_data) => {
+                self.next_ino = Some(files_data.0);
+                self.attr = Some(files_data.1);
+                self.entry = Some(files_data.2);
+                self.data = Some(files_data.3);
+                self.lookup_count = Some(lookup_count::LookupCount::new());
                 return Ok(());
             },
             Err(e) => return Err(e)
@@ -58,20 +72,23 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
     }
 
     fn lookup(&mut self, parent: u64, name: &OsStr) -> Option<attr::Attr> {
-        let attr;
-        let entity = match &mut self.entity {
-            Some(entity) => entity,
-            None => return None
-        };
-        let entries = match entity.entry(&parent) {
-            Some(entries) => entries,
+        // 子供のエントリ
+        let entries = match self.entry() {
+            Some(entries) => match entries.entry(parent) {
+                Some(entry) => entry,
+                None => return None
+            },
             None => return None
         };
 
+        // 親ディレクトリのエントリからnameの名前を持つ子どをも探索する
         for entry in entries.iter() {
             let child_ino = entry.child_ino();
-            let child_attr = match entity.attr(&child_ino) {
-                Some(child_attr) => child_attr,
+            let child_attr = match self.attr() {
+                Some(attr) => match attr.attr(child_ino) {
+                    Some(child_attr) => child_attr,
+                    None => return None
+                },
                 None => return None
             };
             let file_name = match name.to_str() {
@@ -80,59 +97,63 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             };
 
             if child_attr.name == file_name {
-                attr = child_attr.clone();
-                entity.update_lookupcount(child_ino);
-                return Some(attr);
+                let lookup_attr_data = child_attr.clone();
+
+                // mutable-----------------------------------
+                 match self.lookup_count_mut() {
+                    Some(lookup_count) => {
+                        lookup_count.update_lookupcount(child_ino);
+                        return Some(lookup_attr_data);
+                    },
+                    None => return None
+                };
+                // -------------------------------------------
             }
-        }
+        };
         None
     }
 
     fn attr_from_ino(&self, ino: u64) -> Option<&attr::Attr> {
-        let entity = match &self.entity {
-            Some(entity) => entity,
+        let attr = match self.attr() {
+            Some(attr) => attr,
             None => return None
         };
 
-        return entity.attr(&ino);
+        attr.attr(ino)
     }
 
     fn readdir(&mut self, ino: u64) -> Option<Vec<(u64, &str, attr::FileType)>> {
         let mut ret_vec = Vec::new();
-        let entity = match &mut self.entity {
-            Some(entity) => entity,
-            None => return None
-        };
         let st = attr::SystemTime::now();
-        entity.update_atime(ino, st);
 
-
-        let entries = match entity.entry(&ino) {
-            Some(entries) => entries,
+        // mutable-----------------------------------
+        // atime属性のタイムスタンプを更新
+        match self.attr_mut() {
+            Some(attr) => attr.update_atime(ino, st),
             None => return None
         };
-        let attr = match entity.attr(&ino) {
+        // -------------------------------------------
+
+        let attr = match self.attr() {
             Some(attr) => attr,
             None => return None
         };
-        let new_attr = attr::new(
-            ino,
-            attr.size(),
-            attr.name().to_string(),
-            attr.kind(),
-            attr.perm(),
-            attr.uid(),
-            attr.gid(),
-            st,
-            attr.mtime(),
-            attr.ctime(),
-            attr.nlink()
-        );
-        self.file_repository.update_attr(&new_attr);
+        // attr.yamlを更新
+        match attr.attr(ino) {
+            Some(attr_data) => self.file_repository.update_attr(&attr_data),
+            None => return None
+        };
+        let entries = match self.entry() {
+            Some(entries) => match entries.entry(ino) {
+                Some(entry) => entry,
+                None => return None
+            },
+            None => return None
+        };
 
         for entry in entries.iter() {
             let child_ino = entry.child_ino();
-            let child_attr = match entity.attr(&child_ino) {
+            let child_attr = match attr.attr(child_ino) {
                 Some(child_attr) => child_attr,
                 None => return None
             };
@@ -146,76 +167,85 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
     }
     
     fn read(&mut self, ino: u64, offset: i64, size: u64) -> Option<&str> {
-        let entity = match &mut self.entity {
-            Some(entity) => entity,
+        // mutable-----------------------------------
+        // atime属性を更新
+        match self.attr_mut() {
+            Some(attr) => attr.update_atime(ino, attr::SystemTime::now()),
             None => return None
         };
-        let attr = match entity.attr(&ino) {
-            Some(attr) => attr,
+        // -------------------------------------------
+        // attr.yamを更新
+        match self.attr() {
+            Some(attr) => match attr.attr(ino) {
+                Some(attr_data) => {self.file_repository.update_attr(attr_data);},
+                None => return None
+            },
             None => return None
-        };
-        let st = attr::SystemTime::now();
-        let new_attr = attr::new(
-            ino,
-            attr.size(),
-            attr.name().to_string(),
-            attr.kind(),
-            attr.perm(),
-            attr.uid(),
-            attr.gid(),
-            st,
-            attr.mtime(),
-            attr.ctime(),
-            attr.nlink()
-        );
-        self.file_repository.update_attr(&new_attr);
-        entity.update_atime(ino, st);
+        }
 
-        let data = match entity.data(&ino) {
-            Some(data) => data,
+        match self.data() {
+            Some(data) => match data.all_data(ino) {
+                Some(data) => {
+                    // TODO: offsetを考慮して文字列を抜き出す
+                    let end = offset as u64 + size;
+                    return Some(data.data());
+                },
+                None => return None
+            },
             None => return None
         };
-        let text_data = data.data();
-        let end = offset as u64 + size;
 
-        // TODO: offsetを考慮して返却する必要がある
-        return Some(text_data);
-//        return Some(&text_data[(offset as usize)..(end as usize)]);
+        // return Some(&text_data[(offset as usize)..(end as usize)]);
     }
 
     fn write(&mut self, ino: u64, offset: u64, data: &str) -> Result<u64> {
-        let entity = match &mut self.entity {
-            Some(entity) => entity,
-            None => return Err(entity::Error::InternalError.into()) 
-        }; 
-        let old_data = match entity.data(&ino) {
-            Some(data) => data,
+        let mut new_text_data_len: u64 = 0;
+        // dataを更新
+        // mutable: self.data-----------------------------------
+        match self.data_mut() {
+            Some(all_data) => match all_data.all_data(ino) {
+                Some(old_data) => {
+                    let new_text_data = match merge_str(offset, data, old_data.data()) {
+                        Ok(new_text_data) => new_text_data,
+                        Err(e) => return Err(e.into())
+                    };
+                    new_text_data_len = new_text_data.len() as u64;
+                    all_data.update_data(ino, data::Data::new(ino, new_text_data));
+                },
+                None => return Err(entity::Error::InternalError.into())
+            },
             None => return Err(entity::Error::InternalError.into())
-        };
-        let old_str = old_data.data();
-        let new_text_data = match merge_str(offset, data, old_str) {
-            Ok(new_text_data) => new_text_data,
-            Err(e) => return Err(e.into())
-        };
-        let len: u64 = new_text_data.len() as u64;
-
-        self.file_repository.write_data(ino, new_text_data.as_str())?;
-        
-        let st = attr::SystemTime::now();
-        let data = data::new(ino, new_text_data);
-
-        entity.update_data(ino, data)?;
-        entity.update_size(ino, len)?;
-        entity.update_mtime(ino, st)?;
-        entity.update_ctime(ino, st)?;
-
-        let attr = match entity.attr(&ino) {
-            Some(attr) => attr,
+        }
+        // -------------------------------------------
+        // atimeを更新
+        match self.attr_mut() {
+            Some(attr) => {
+                let st = attr::SystemTime::now();
+                attr.update_size(ino, new_text_data_len);
+                attr.update_mtime(ino, st);
+                attr.update_ctime(ino, st);
+            },
             None => return Err(entity::Error::InternalError.into())
-        };
-        self.file_repository.update_attr(&attr)?;
+        }
+        // attr.yamlファイルを更新
+        match self.attr() {
+            Some(attr) => match attr.attr(ino) {
+                Some(attr_data) => {self.file_repository.update_attr(&attr_data);},
+                None => return Err(entity::Error::InternalError.into())
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        // data.yamlファイルを更新
+        match self.data() {
+            Some(all_data) => match all_data.all_data(ino) {
+                Some(data) => {self.file_repository.write_data(ino, data.data());},
+                None => return Err(entity::Error::InternalError.into())
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
 
-        return Ok(len);
+
+        Ok(new_text_data_len)
     }
 
     fn setattr(
@@ -228,58 +258,103 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         atime: Option<attr::SystemTime>,
         mtime: Option<attr::SystemTime>
     ) -> Result<attr::Attr> {
-        let imu_entity = match &self.entity {
-            Some(entity) => entity,
-            None => return Err(entity::Error::InternalError.into()) 
-        };
+         // TODO:
+        // sizeが元のファイルサイズより小さい0以外の値が指定された場合、
+        // 残すべきデータは残しつつ、いらないデータがきちんと破壊されるようにする
+
+        // TODO:
+        // 元のファイルサイズより大きい値が指定された場合、
+        // 間のデータが0(\0)で埋められるようにする
+        // let imu_entity = match &self.entity {
+        //     Some(entity) => entity,
+        //     None => return Err(entity::Error::InternalError.into()) 
+        // };
+
+        let mut com_data_size: Result<attr::Compare, attr::Error> = Err(attr::Error::InternalError);
+
+        // atimeを更新
+        match self.attr_mut() {
+            Some(attr)=> {
+                if let Some(n) = mode { attr.update_perm(ino, n as u16); };
+                if let Some(n) = uid { attr.update_uid(ino, n); };
+                if let Some(n) = gid { attr.update_gid(ino, n); };
+                if let Some(n) = size { 
+                    com_data_size = attr.cmp_data_size(ino, n as u64);
+                    attr.update_size(ino, n); 
+                };
+                if let Some(n) = atime { attr.update_atime(ino, n); };
+                if let Some(n) = mtime { attr.update_mtime(ino, n); };
+
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        // dataを更新
         let mut new_data = String::new();
-        if let Some(n) = size {
-            match imu_entity.cmp_data_size(ino, n) {
-                Ok(c) =>  {
-                    match c {
-                        entity::Compare::Smaller => {
-                            // ずるしてます
-                            new_data = smaller_data(imu_entity.data(&ino).unwrap().data(), n);
+
+        // 更新後のdata内のテキストを取得
+        match self.data() {
+            Some(all_data) => {
+                if let Some(n) = size {
+                    match com_data_size {
+                        Ok(c) =>  {
+                            match c {
+                                Smaller => {
+                                    // ずるしてます
+                                    new_data = smaller_data(all_data.all_data(ino).unwrap().data(), n);
+                                },
+                                Begger => {
+                                    // ずるしてます
+                                    new_data = begger_data(all_data.all_data(ino).unwrap().data(), n);
+                                },
+                                Equal => {
+                                    // 無駄な処理
+                                    // ずるしてます
+                                    new_data = all_data.all_data(ino).unwrap().data().to_string();
+                                }
+                            }
                         },
-                        entity::Compare::Begger => {
-                            // ずるしてます
-                            new_data = begger_data(imu_entity.data(&ino).unwrap().data(), n);
-                        },
-                        entity::Compare::Equal => {
-                            // 無駄な処理
-                            // ずるしてます
-                            new_data = imu_entity.data(&ino).unwrap().data().to_string();
-                        }
+                        Err(_) => return Err(entity::Error::InternalError.into())
+
                     }
-                },
-                Err(_) => return Err(entity::Error::InternalError.into())
-            }
+                }
+            },
+            None => return Err(entity::Error::InternalError.into())
         }
 
-        let entity = match &mut self.entity {
-            Some(entity) => entity,
-            None => return Err(entity::Error::InternalError.into()) 
-        };
+        // dataの更新
+        match self.data_mut() {
+            Some(all_data) => {all_data.update_data(ino, data::Data::new(ino, new_data));},
+            None => return Err(entity::Error::InternalError.into())
+        }
 
-        if let Some(n) = mode { entity.update_perm(ino, n as u16)?; };
-        if let Some(n) = uid { entity.update_uid(ino, n)?; };
-        if let Some(n) = gid { entity.update_gid(ino, n)?; };
-        if let Some(n) = size {
-            entity.update_data(ino, data::new(ino, new_data))?;
-            entity.update_size(ino, n)?;
-        };
-        if let Some(n) = atime { entity.update_atime(ino, n)?; };
-        if let Some(n) = mtime { entity.update_mtime(ino, n)?; };
+        // atime.yamlを更新
+        match self.attr() {
+            Some(attr) => match attr.attr(ino) {
+                Some(attr_data) => {self.file_repository.update_attr(&attr_data);},
+                None => return Err(entity::Error::InternalError.into())
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        // data.yamlを更新
+        match self.data() {
+            Some(all_data) => match all_data.all_data(ino) {
+                Some(data) => {self.file_repository.write_data(ino, data.data());},
+                None => return Err(entity::Error::InternalError.into())
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
 
-        let attr = match entity.attr(&ino) {
-            Some(attr) => attr,
+
+        // 返却
+        let attr_data = match self.attr() {
+            Some(attr) => match attr.attr(ino) {
+                Some(attr_data) => attr_data.clone(),
+                None => return Err(entity::Error::InternalError.into())
+            },
             None => return Err(entity::Error::InternalError.into())
         };
-        self.file_repository.update_attr(attr)?;
-        // ずるしてます
-        self.file_repository.write_data(ino, entity.data(&ino).unwrap().data())?;
-        
-        return Ok(attr.clone());
+        Ok(attr_data)
+
     }
 
     fn create(
@@ -289,41 +364,145 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         mode: u32,
         flags: u32
     ) -> Result<attr::Attr> {
-        let entity = match &mut self.entity {
-            Some(entity) => entity,
+        let new_ino = self.new_ino();
+        // attrの更新
+        match self.attr_mut() {
+            Some(attr) => {
+                let name_string = match name.to_str() {
+                    Some(name) => name.to_string(),
+                    None => return Err(entity::Error::InternalError.into())
+                };
+                let new_attr = attr::Attr::new(
+                    new_ino,
+                    0,
+                    name_string,
+                    attr::FileType::TextFile,
+                    mode as u16,
+                    // TODO::ユーザID グループID固定値
+                    1000,
+                    1000,
+                    attr::SystemTime::now(),
+                    attr::SystemTime::now(),
+                    attr::SystemTime::now(),
+                    1
+                );
+                attr.inc_size(parent);
+                attr.update_attr(new_attr);
+            },
+            None => return Err(entity::Error::InternalError.into()) 
+        }
+        // dataの更新
+        match self.data_mut() {
+            Some(data) => { data.update_data(new_ino, data::Data::new(new_ino, "".to_string())); },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        // entryの更新
+        match self.entry_mut() {
+            Some(entry) => { entry.insert_child_ino(parent, new_ino); },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        // attr.yamlの更新
+        match self.attr() {
+            Some(attr) => {
+                self.file_repository.update_attr(attr.attr(parent).unwrap())?;
+                self.file_repository.update_attr(attr.attr(new_ino).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        // data.yamlの更新
+        match self.data() {
+            Some(all_data) => match all_data.all_data(new_ino) {
+                Some(data) => {self.file_repository.write_data(new_ino, data.data());},
+                None => return Err(entity::Error::InternalError.into())
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        // entry.yamlの更新
+        match self.entry() {
+            Some(entry) => {
+                self.file_repository.update_entry(new_ino, entry.entry(parent).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        let attr_data = match self.attr() {
+            Some(attr) => match attr.attr(parent) {
+                Some(attr_data) => attr_data.clone(),
+                None => return Err(entity::Error::InternalError.into())
+            },
             None => return Err(entity::Error::InternalError.into())
         };
-        let name_string = match name.to_str() {
-            Some(name) => name.to_string(),
-            None => return Err(entity::Error::InternalError.into())
+
+        Ok(attr_data)
+    }
+
+    fn new_ino(&mut self) -> u64 {
+        let next_ino = match self.next_ino {
+            Some(next_ino) => {
+                self.next_ino = Some(next_ino + 1);
+                next_ino + 1
+            },
+            None => return 0
         };
-        let ino = entity.new_ino();
-        let attr = attr::new(
-            ino,
-            0,
-            name_string,
-            attr::FileType::TextFile,
-            mode as u16,
-            // TODO::ユーザID グループID固定値
-            1000,
-            1000,
-            attr::SystemTime::now(),
-            attr::SystemTime::now(),
-            attr::SystemTime::now(),
-            1
-        );
+        next_ino
+    }
+}
 
-        entity.inc_size(parent)?;
-        entity.update_attr(attr.clone());
-        entity.update_data(ino, data::new(ino, "".to_string()))?;
-        entity.insert_child_ino(parent, ino);
+impl<F: repository::File>  UsecaseStruct<F> {
+    fn entry(&self) -> Option<&entry::EntriesStruct> {
+        match &self.entry {
+            Some(entry) => Some(entry),
+            None => None
+        }
+    }
 
-        self.file_repository.update_attr(entity.attr(&parent).unwrap())?;
-        self.file_repository.update_attr(entity.attr(&ino).unwrap())?;
-        self.file_repository.write_data(ino, "")?;
-        self.file_repository.update_entry(ino, entity.entry(&parent).unwrap())?;
+    fn entry_mut(&mut self) -> Option<&mut entry::EntriesStruct> {
+        match &mut self.entry {
+            Some(entry) => Some(entry),
+            None => None
+        }
+    }
 
-        Ok(attr)
+    fn attr(&self) -> Option<&attr::AttrsStruct> {
+        match &self.attr {
+            Some(attr) => Some(attr),
+            None => None
+        }
+    }
+
+    fn attr_mut(&mut self) -> Option<&mut attr::AttrsStruct> {
+        match &mut self.attr {
+            Some(attr) => Some(attr),
+            None => None
+        }
+    }
+
+    fn data(&self) -> Option<&data::AllDataStruct> {
+        match &self.data {
+            Some(data) => Some(data),
+            None => None
+        }
+    }
+
+    fn data_mut(&mut self) -> Option<&mut data::AllDataStruct> {
+        match &mut self.data {
+            Some(data) => Some(data),
+            None => None
+        }
+    }
+
+    fn lookup_count(&self) -> Option<&lookup_count::LookupCount> {
+        match &self.lookup_count {
+            Some(lookup_count) => Some(lookup_count),
+            None => None
+        }
+    }
+
+    fn lookup_count_mut(&mut self) -> Option<&mut lookup_count::LookupCount> {
+        match &mut self.lookup_count {
+            Some(lookup_count) => Some(lookup_count),
+            None => None
+        }
     }
 }
 
