@@ -257,6 +257,19 @@ impl AttrsStruct {
         Ok(size)
     }
 
+    pub fn dec_size(&mut self, ino: u64) -> Result<u64, Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+
+        let size_p = attr.size_mut();
+        let size = *size_p - 1;
+        *size_p = size;
+
+        Ok(size)
+    }
+
     pub fn update_attr(&mut self, attr: Attr) -> Option<Attr> {
         self.attrs.insert(attr.ino(), attr)
     }
@@ -293,6 +306,13 @@ impl AttrsStruct {
         let gid_p = attr.gid_mut();
         *gid_p = gid;
         return Ok(());
+    }
+
+    pub fn del(&mut self, ino: u64) -> Result<Attr, Error> {
+        match self.attrs.remove(&ino) {
+            Some(attr) => Ok(attr),
+            None => Err(Error::InternalError.into())
+        }
     }
 
     // ino > size -> Begger

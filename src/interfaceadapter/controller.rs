@@ -35,6 +35,11 @@ pub trait Controller {
         mode: u32,
         flags: u32
     ) -> Result<fuse::FileAttr>;
+    fn unlink(
+        &mut self,
+        parent: u64,
+        name: &OsStr
+    ) -> Result<()>;
 }
 
 pub fn new<U>(usecase: U) -> impl Controller
@@ -235,6 +240,17 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             rdev: 0,
             flags: 0,
         })
+    }
+
+    fn unlink(
+        &mut self,
+        parent: u64,
+        name: &OsStr
+    ) -> Result<()> {
+        match self.usecase.unlink(parent, name) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e)
+        }
     }
 }
 

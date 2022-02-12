@@ -3,7 +3,8 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct LookupCount {
-    count: HashMap<u64, u64>
+    count: HashMap<u64, u64>,
+    unlink_delay: HashMap<u64, bool>
 }
 
 pub enum Error {}
@@ -15,7 +16,8 @@ pub enum Error {}
 impl LookupCount {
     pub fn new() -> LookupCount {
         LookupCount {
-            count: HashMap::new()
+            count: HashMap::new(),
+            unlink_delay: HashMap::new()
         }
     }
 
@@ -30,5 +32,9 @@ impl LookupCount {
             Some(lc) => *lc,
             None => 0
         }
+    }
+
+    pub fn delay(&mut self, ino: u64) {
+        self.unlink_delay.insert(ino, false);
     }
 }
