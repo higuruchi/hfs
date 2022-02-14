@@ -41,6 +41,7 @@ const ATIME:        &str = "atime";
 const MTIME:        &str = "mtime";
 const CTIME:        &str = "ctime";
 const NLINK:        &str = "nlink";
+const DEL:          &str = "del";
 
 const ATTR_DEFAULT_PATH: &str = "/etc/attr.yaml";
 const ENTRY_DEFAULT_PATH: &str = "/etc/entry.yaml";
@@ -107,6 +108,39 @@ impl worker::File for YAMLImageStruct {
             ).as_bytes()
         )?;
         return Ok(());
+    }
+
+    fn del_attr(&self, ino: u64) -> Result<()> {
+        let attr_path = match self.attr.to_str() {
+            Some(attr_path) => attr_path,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(attr_path)?;
+        file.write_all(
+            format!(
+                "- ino: {}\n  del: {}\n",
+                ino,
+                true
+            ).as_bytes()
+        )?;
+
+        Ok(())
+    }
+
+    fn del_data(&self, ino: u64) -> Result<()> {
+        let data_path = match self.data.to_str() {
+            Some(data_path) => data_path,
+            None => return Err(entity::Error::InternalError.into())
+        };
+
+        let mut file = fs::OpenOptions::new()
+            .append(true)
+            .open(data_path)?;
+
+        file.write_all(format!("- ino: {}\n  del: {}\n", ino, true).as_bytes())?;
+        return Ok(());    
     }
 
     fn update_entry(&self, ino: u64, child_inos: &Vec<entry::Entry>) -> Result<()> {
@@ -260,6 +294,17 @@ impl YAMLImageStruct {
                 Yaml::Integer(i) => *i as u64,
                 _ => return (Err(entity::Error::InvalidINO.into()), 0)
             };
+
+            match &attr_data[DEL] {
+                Yaml::Boolean(flg) => {
+                    if *flg {
+                        attrs_hash.remove(&ino);
+                        continue;
+                    }
+                },
+                _ => {}
+            }
+
             let name = match &attr_data[NAME] {
                 Yaml::String(s) => s.clone(),
                 _ => return (Err(entity::Error::InvalidName.into()), 0)
@@ -365,6 +410,16 @@ impl YAMLImageStruct {
                 Yaml::Integer(i) => *i as u64,
                 _ => return Err(entity::Error::InvalidINO.into())
             };
+
+            match &data[DEL] {
+                Yaml::Boolean(flg) => {
+                    if *flg {
+                        data_hash.remove(&ino);
+                        continue;
+                    }
+                },
+                _ => {}
+            }
 
             let text_data = match &data[DATA] {
                 Yaml::String(s) => s.clone(),

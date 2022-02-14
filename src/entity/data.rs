@@ -47,5 +47,13 @@ impl AllDataStruct {
         self.all_data.insert(ino, data);
         return Ok(());
     }
+
+    pub fn del(&mut self, ino: u64) -> Result<Data, Error> {
+        match self.all_data.remove(&ino) {
+            Some(attr) => Ok(attr),
+            None => Err(Error::InternalError.into())
+        }
+    }
 }
+
 impl AllData for AllDataStruct {}

@@ -8,7 +8,8 @@ use fuse::{
     ReplyDirectory,
     Request,
     ReplyWrite,
-    ReplyCreate
+    ReplyCreate,
+    ReplyEmpty
 };
 use std::ffi::OsStr;
 use time;
@@ -152,6 +153,19 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
                     Err(_) => reply.error(libc::ENOENT)
                 }
             }
+        }
+    }
+
+    fn unlink(
+        &mut self,
+        _req: &Request<'_>,
+        parent: u64,
+        name: &OsStr,
+        reply: ReplyEmpty
+    ) {
+        match self.controller.unlink(parent, name) {
+            Ok(_) => reply.ok(),
+            Err(_) => reply.error(libc::ENOENT)
         }
     }
 }

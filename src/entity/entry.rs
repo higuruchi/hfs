@@ -57,6 +57,24 @@ impl EntriesStruct {
         Some(entry)
     }
 
+    // TODO: 返却値一時的になし
+    pub fn remove_child_ino(&mut self, parent_ino: u64, child_ino: u64) {
+        let mut new_entry: Vec<Entry> = Vec::new();
+
+        let entry = match self.entries.get(&parent_ino) {
+            Some(entry) => entry,
+            None => return
+        };
+
+        for e in entry {
+            if e.child_ino() != child_ino {
+                new_entry.push(Entry::new(parent_ino, e.child_ino()));
+            }
+        }
+
+        self.entries.insert(parent_ino, new_entry);
+    }
+
     // fn insert_entry(&mut self, ino: u64) -> Option<&mut Vec<Entry>> {
     //     self.entries().insert(ino, Vec::new());
     //     self.entries().get_mut(&ino)

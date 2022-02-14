@@ -32,4 +32,12 @@ impl<F: worker::File> File for FileRepositoryStruct<F> {
     fn update_entry(&self, ino: u64, child_inos: &Vec<entry::Entry>) -> Result<()> {
         self.file_worker.update_entry(ino, child_inos)
     }
+
+    fn del_attr(&self, ino: u64) -> Result<()> {
+        self.file_worker.del_attr(ino)
+    }
+
+    fn del_data(&self, ino: u64) -> Result<()> {
+        self.file_worker.del_data(ino)
+    }
 }

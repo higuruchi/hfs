@@ -40,6 +40,11 @@ pub trait Usecase {
         mode: u32,
         flags: u32
     ) -> Result<attr::Attr>;
+    fn unlink(
+        &mut self,
+        parent: u64,
+        name: &OsStr
+    ) -> Result<()>;
     fn new_ino(&mut self) -> u64;
 }
 
@@ -436,6 +441,77 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         Ok(attr_data)
     }
 
+    fn unlink(
+        &mut self,
+        parent: u64,
+        name: &OsStr
+    ) -> Result<()> {
+        // unlinkするファイルのino
+        let unlink_child_ino = match self.child_ino_from_parent(parent, name) {
+            Some(child_ino) => child_ino,
+            None => return Err(entity::Error::InternalError.into())
+        };
+        
+        // entryから当該のエントリを削除する
+        match self.entry_mut() {
+            Some(entry) => entry.remove_child_ino(parent, unlink_child_ino),
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // 親attrのサイズを変更する
+        match self.attr_mut() {
+            Some(attr) => { attr.dec_size(parent); },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // lookupcountをチェックし、
+        // lookupcountが0ならば子attr,dataを削除する
+        // 0ではないならばLookupCountayに記録する
+        match self.lookup_count_mut() {
+            Some(lookup_count) => match lookup_count.lookup_count(unlink_child_ino) {
+                0 => {
+                    // メモリ上から任意のinoを持つattr::Attrを削除する
+                    match self.attr_mut() {
+                        Some(attr) => { attr.del(unlink_child_ino); },
+                        None => return Err(entity::Error::InternalError.into())
+                    }
+
+                    // メモリ上から任意のinoを持つdata::Dataを削除する
+                    match self.data_mut() {
+                        Some(data) => { data.del(unlink_child_ino); },
+                        None => return Err(entity::Error::InternalError.into())
+                    }
+                },
+                _ => {
+                    lookup_count.delay(unlink_child_ino); 
+                }
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // entry.yamlを更新する
+        match self.entry() {
+            Some(entry) => {
+                self.file_repository.update_entry(parent, entry.entry(parent).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // attr.yamlの更新
+        match self.attr() {
+            Some(attr) => {
+                self.file_repository.update_attr(attr.attr(parent).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        self.file_repository.del_attr(unlink_child_ino)?;
+
+        // data.yamlを更新する
+        self.file_repository.del_data(unlink_child_ino)?;
+
+        Ok(())
+    }
+
     fn new_ino(&mut self) -> u64 {
         let next_ino = match self.next_ino {
             Some(next_ino) => {
@@ -503,6 +579,38 @@ impl<F: repository::File>  UsecaseStruct<F> {
             Some(lookup_count) => Some(lookup_count),
             None => None
         }
+    }
+
+    fn child_ino_from_parent(&self, parent_ino: u64, name: &OsStr) -> Option<u64> {
+        let entries = match self.entry() {
+            Some(entries) => match entries.entry(parent_ino) {
+                Some(entry) => entry,
+                None => return None
+            },
+            None => return None
+        };
+
+        // 親ディレクトリのエントリからnameの名前を持つ子どをも探索する
+        for entry in entries.iter() {
+            let child_ino = entry.child_ino();
+            let child_attr = match self.attr() {
+                Some(attr) => match attr.attr(child_ino) {
+                    Some(child_attr) => child_attr,
+                    None => return None
+                },
+                None => return None
+            };
+            let file_name = match name.to_str() {
+                Some(file_name) => file_name,
+                None => return None
+            };
+
+            if child_attr.name == file_name {
+                return Some(child_ino);
+            }
+        };
+
+        None
     }
 }
 
