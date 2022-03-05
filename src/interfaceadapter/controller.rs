@@ -40,6 +40,12 @@ pub trait Controller {
         parent: u64,
         name: &OsStr
     ) -> Result<()>;
+
+    fn forget(
+        &mut self,
+        ino: u64,
+        nlookup: u64
+    ) -> Result<()>;
 }
 
 pub fn new<U>(usecase: U) -> impl Controller
@@ -251,6 +257,14 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
             Ok(_) => Ok(()),
             Err(e) => Err(e)
         }
+    }
+
+    fn forget(
+        &mut self,
+        ino: u64,
+        nlookup: u64,
+    ) -> Result<()> {
+        self.usecase.forget(ino, nlookup)
     }
 }
 
