@@ -168,5 +168,14 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
             Err(_) => reply.error(libc::ENOENT)
         }
     }
+
+    fn forget(
+        &mut self,
+        _req: &Request<'_>,
+        _ino: u64,
+        _nlookup: u64
+    ) {
+        self.controller.forget(_ino, _nlookup);
+    }
 }
 

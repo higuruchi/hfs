@@ -45,6 +45,11 @@ pub trait Usecase {
         parent: u64,
         name: &OsStr
     ) -> Result<()>;
+    fn forget(
+        &mut self,
+        ino: u64,
+        nlookup: u64,
+    ) -> Result<()>;
     fn new_ino(&mut self) -> u64;
 }
 
@@ -509,6 +514,34 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
         // data.yamlを更新する
         self.file_repository.del_data(unlink_child_ino)?;
 
+        Ok(())
+    }
+
+    fn forget(
+        &mut self,
+        ino: u64,
+        nlookup: u64,
+    ) -> Result<()> {
+        if let Some(lookup_count) = self.lookup_count_mut() {
+            match lookup_count.forget(ino, nlookup) {
+                Some(num) => {
+                    if num == 0 {
+                        // メモリ上から任意のinoを持つattr::Attrを削除する
+                    match self.attr_mut() {
+                        Some(attr) => { attr.del(ino); },
+                        None => return Err(entity::Error::InternalError.into())
+                    }
+
+                    // メモリ上から任意のinoを持つdata::Dataを削除する
+                    match self.data_mut() {
+                        Some(data) => { data.del(ino); },
+                        None => return Err(entity::Error::InternalError.into())
+                    }
+                    }
+                },
+                None => {}
+            }
+        }
         Ok(())
     }
 
