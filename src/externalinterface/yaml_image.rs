@@ -260,7 +260,7 @@ impl YAMLImageStruct {
                             _ => return Err(entity::Error::InvalidINO.into())
                         };
 
-                        entries.push(entry::Entry::new(ino, child_ino));
+                        entries.push(entry::Entry::new(child_ino));
                     }
                 },
                 _ => {}

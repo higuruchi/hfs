@@ -50,6 +50,24 @@ pub trait Usecase {
         ino: u64,
         nlookup: u64,
     ) -> Result<()>;
+    fn mkdir(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+    ) -> Result<attr::Attr>;
+    fn rmdir(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+    ) -> Result<()>;
+    fn rename (
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        newparent: u64,
+        newname: &OsStr,
+    ) -> Result<()>;
     fn new_ino(&mut self) -> u64;
 }
 
@@ -526,22 +544,321 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
             match lookup_count.forget(ino, nlookup) {
                 Some(num) => {
                     if num == 0 {
-                        // メモリ上から任意のinoを持つattr::Attrを削除する
-                    match self.attr_mut() {
-                        Some(attr) => { attr.del(ino); },
-                        None => return Err(entity::Error::InternalError.into())
-                    }
+                        let file_type;
 
-                    // メモリ上から任意のinoを持つdata::Dataを削除する
-                    match self.data_mut() {
-                        Some(data) => { data.del(ino); },
-                        None => return Err(entity::Error::InternalError.into())
-                    }
+                        // メモリ上から任意のinoを持つattr::Attrを削除する
+                        match self.attr_mut() {
+                            Some(attr) => { 
+                                file_type = attr.attr(ino).unwrap().file_type();
+
+                                attr.del(ino);
+                            },
+                            None => return Err(entity::Error::InternalError.into())
+                        }
+
+                        // メモリ上から任意のinoを持つdata::Dataを削除する
+                        match file_type {
+                            attr::FileType::Directory => match self.entry_mut() {
+                                Some(entry) => { entry.del(ino); },
+                                None => return Err(entity::Error::InternalError.into())
+                            },
+                            attr::FileType::TextFile => match self.data_mut() {
+                                Some(data) => { data.del(ino); },
+                                None => return Err(entity::Error::InternalError.into())
+                            }
+                        }
+                        
                     }
                 },
                 None => {}
             }
         }
+        Ok(())
+    }
+
+    fn mkdir(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+    ) -> Result<attr::Attr> {
+        let new_ino = self.new_ino();
+
+        // attrの更新
+        match self.attr_mut() {
+            Some(attr) => {
+                let name_string = match name.to_str() {
+                    Some(name) => name.to_string(),
+                    None => return Err(entity::Error::InternalError.into())
+                };
+                let new_attr = attr::Attr::new(
+                    new_ino,
+                    0,
+                    name_string,
+                    attr::FileType::Directory,
+                    mode as u16,
+                    1000,
+                    1000,
+                    attr::SystemTime::now(),
+                    attr::SystemTime::now(),
+                    attr::SystemTime::now(),
+                    1
+                );
+                attr.inc_size(parent);
+                attr.update_attr(new_attr);
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // entryの更新
+        match self.entry_mut() {
+            Some(entry) => {
+                entry.insert_child_ino(parent, new_ino);
+                entry.insert_entry(new_ino);
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // attr.yamlの更新
+        match self.attr() {
+            Some(attr) => {
+                self.file_repository.update_attr(attr.attr(parent).unwrap())?;
+                self.file_repository.update_attr(attr.attr(new_ino).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // entry.yamlの更新
+        match self.entry() {
+            Some(entry) => {
+                self.file_repository.update_entry(new_ino, entry.entry(parent).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        let attr_data = match self.attr() {
+            Some(attr) => match attr.attr(new_ino) {
+                Some(attr_data) => attr_data.clone(),
+                None => return Err(entity::Error::InternalError.into())
+            },
+            None => return Err(entity::Error::InternalError.into())
+        };
+
+
+        match self.lookup_count_mut() {
+            Some(lookup_count) => { lookup_count.update_lookupcount(new_ino); },
+            None => return Err(entity::Error::InternalError.into())
+        }
+    
+        Ok(attr_data)
+    }
+
+    fn rmdir(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+    ) -> Result<()> {
+        // unlinkするディレクトリのino
+        let child_ino = match self.child_ino_from_parent(parent, name) {
+            Some(child_ino) => child_ino,
+            None => return Err(entity::Error::InternalError.into())
+        };
+
+        // ディレクトリがからかどうかを確認
+        match self.entry() {
+            Some(entry) => {
+                match entry.entry(child_ino) {
+                    Some(entry) => {
+                        if entry.len() != 0 {
+                            return Err(entity::Error::InternalError.into());
+                        }
+                    },
+                    None => return Err(entity::Error::InternalError.into())
+                }
+            },
+            None => return Err(entity::Error::InternalError.into())
+        };
+
+
+        // 親entryから当該のエントリを削除する
+        match self.entry_mut() {
+            Some(entry) => entry.remove_child_ino(parent, child_ino),
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // 親attrのサイズを変更する
+        match self.attr_mut() {
+            Some(attr) => { attr.dec_size(parent); },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // lookupcountを確認し、entryから削除
+        match self.lookup_count_mut() {
+            Some(lookup_count) => match lookup_count.lookup_count(child_ino) {
+                0 => {
+                    match self.attr_mut() {
+                        Some(attr) => { attr.del(child_ino); },
+                        None => return Err(entity::Error::InternalError.into())
+                    }
+
+                    match self.entry_mut() {
+                        Some(entry) => entry.del(child_ino),
+                        None => return Err(entity::Error::InternalError.into())
+                    }
+                },
+                _ => {
+                    lookup_count.delay(child_ino);
+                }
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // entry.yamlからディレクトリを削除
+        match self.entry() {
+            Some(entry) => {
+                self.file_repository.update_entry(parent, entry.entry(parent).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        // attr.yamlの更新
+        match self.attr() {
+            Some(attr) => {
+                self.file_repository.update_attr(attr.attr(parent).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+        self.file_repository.del_attr(child_ino)?;
+
+        Ok(())
+    }
+
+    fn rename (
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        newparent: u64,
+        newname: &OsStr,
+    ) -> Result<()> {
+        // 親ディレクトリが同じの場合
+        // 名前だけ変更
+        let file_type;
+
+        let ino = match self.child_ino_from_parent(parent, name) {
+            Some(ino) => ino,
+            None => return Err(entity::Error::InternalError.into())
+        };
+
+        if parent == newparent {
+            match self.attr_mut() {
+                Some(attr) => {
+                    let new_name_str = match newname.to_str() {
+                        Some(name) => name,
+                        None => return Err(entity::Error::InternalError.into())
+                    };
+                    attr.update_name(ino, new_name_str);
+                },
+                None => return Err(entity::Error::InternalError.into())
+            }
+        }
+
+        // 変更先にファイル、ディレクトリがある場合は、自動で上書き
+        // ディレクトリを上書きする際、変更先がからでない場合は、エラーを返却
+
+        // 上書きが現状できてない
+        // 同じファイルが2つある状態になる
+
+        match self.child_ino_from_parent(newparent, newname) {
+            Some(move_ino) => {
+                // 上書きする場合
+                // lookupを確認したあと
+                // 上書きされるエントリのattrと、data or entryを削除
+                match self.lookup_count_mut() {
+                    Some(lookup_count) => match lookup_count.lookup_count(move_ino) {
+                        0 => {
+                            match self.attr_mut() {
+                                // 削除するエントリのファイルタイプを取得
+                                Some(attrs) => {
+                                    match attrs.attr(move_ino) {
+                                        Some(attr) => {
+                                            file_type = attr.file_type();
+                                        },
+                                        None => return Err(entity::Error::InternalError.into())
+                                    }
+                                    // attrを削除
+                                    attrs.del(move_ino);
+
+                                    // file_typeをもとにdirectoryやtextfileを削除
+                                    match file_type {
+                                        attr::FileType::Directory => match self.entry_mut() {
+                                            Some(entry) => {
+                                                entry.del(move_ino)
+                                            },
+                                            None => return Err(entity::Error::InternalError.into())
+                                        },
+                                        attr::FileType::TextFile => match self.data_mut() {
+                                            Some(data) => { data.del(move_ino); },
+                                            None => return Err(entity::Error::InternalError.into())
+                                        }
+                                    }
+                                },
+                                None => return Err(entity::Error::InternalError.into())
+                            }
+                            // entryを削除
+
+                            match self.entry_mut() {
+                                Some(entry) => {
+                                    entry.remove_child_ino(newparent, ino);
+                                    entry.mov(ino, parent, newparent);
+                                },
+                                None => return Err(entity::Error::InternalError.into())
+                            }
+
+                            self.file_repository.del_attr(move_ino)?;
+                        },
+                        _ => {
+                            lookup_count.delay(move_ino);
+                            match self.entry_mut() {
+                                Some(entry) => {
+                                    entry.remove_child_ino(newparent, ino);
+                                    entry.mov(ino, parent, newparent);
+                                },
+                                None => return Err(entity::Error::InternalError.into())
+                            }
+
+                            self.file_repository.del_attr(move_ino)?;
+                        }
+                    },
+                    None => return Err(entity::Error::InternalError.into())
+                }
+            },
+            None => {
+                // 上書きせずにそのまま移動
+                match self.entry_mut() {
+                    Some(entry) => {
+                        entry.mov(ino, parent, newparent);
+                    },
+                    None => return Err(entity::Error::InternalError.into())
+                }
+            }
+        }
+
+        match self.attr() {
+            Some(attr) => {
+                self.file_repository.update_attr(attr.attr(parent).unwrap())?;
+                self.file_repository.update_attr(attr.attr(newparent).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
+        match self.entry() {
+            Some(entry) => {
+                self.file_repository.update_entry(parent, entry.entry(parent).unwrap())?;
+                self.file_repository.update_entry(newparent, entry.entry(newparent).unwrap())?;
+            },
+            None => return Err(entity::Error::InternalError.into())
+        }
+
         Ok(())
     }
 

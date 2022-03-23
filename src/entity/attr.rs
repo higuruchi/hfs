@@ -161,6 +161,10 @@ impl Attr {
     pub fn nlink_mut(&mut self) -> &mut u32 {
         &mut self.nlink
     }
+
+    pub fn set_name(&mut self, name: &str) {
+        self.name = name.to_string()
+    }
 }
 
 impl SystemTime {
@@ -306,6 +310,17 @@ impl AttrsStruct {
         let gid_p = attr.gid_mut();
         *gid_p = gid;
         return Ok(());
+    }
+
+    pub fn update_name(&mut self, ino: u64, name: &str) -> Result<(), Error> {
+        let attr = match self.attrs.get_mut(&ino) {
+            Some(attr) => attr,
+            None => return Err(Error::InternalError.into())
+        };
+
+        attr.set_name(name);
+
+        Ok(())     
     }
 
     pub fn del(&mut self, ino: u64) -> Result<Attr, Error> {
