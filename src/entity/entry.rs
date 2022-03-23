@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    pub ino: u64,
+    // pub ino: u64,
     pub child_ino: u64
 }
 
@@ -14,11 +14,11 @@ pub trait Entries {}
 
 impl Entry {
     pub fn new(
-        ino: u64,
+        // ino: u64,
         child_ino: u64
     ) -> Entry {
         Entry {
-            ino: ino,
+            // ino: ino,
             child_ino: child_ino
         }
     }
@@ -52,9 +52,13 @@ impl EntriesStruct {
             None => return None
         };
 
-        entry.push(Entry::new(parent_ino, child_ino));
+        entry.push(Entry::new(child_ino));
 
         Some(entry)
+    }
+
+    pub fn insert_entry(&mut self, ino: u64) {
+        self.entries.insert(ino, Vec::new());
     }
 
     // TODO: 返却値一時的になし
@@ -68,16 +72,32 @@ impl EntriesStruct {
 
         for e in entry {
             if e.child_ino() != child_ino {
-                new_entry.push(Entry::new(parent_ino, e.child_ino()));
+                new_entry.push(Entry::new(e.child_ino()));
             }
         }
 
         self.entries.insert(parent_ino, new_entry);
     }
 
+    pub fn del(&mut self, ino: u64) {
+        self.entries.remove(&ino);
+    }
     // fn insert_entry(&mut self, ino: u64) -> Option<&mut Vec<Entry>> {
     //     self.entries().insert(ino, Vec::new());
     //     self.entries().get_mut(&ino)
     // }
+
+    pub fn mov(&mut self, ino: u64, parent_ino: u64, new_parent_ino: u64) {
+        // parent_inoのエントリからinoをフィルタリングしたものを挿入
+        let mut parent_entry_vec = Vec::new();
+        for e in self.entries.get(&parent_ino).unwrap().iter() {
+            if e.child_ino() != ino {
+                parent_entry_vec.push(e.clone());
+            }
+        }
+        self.entries.insert(parent_ino, parent_entry_vec);
+
+        self.insert_child_ino(new_parent_ino, ino);
+    }
 }
 impl Entries for EntriesStruct {}

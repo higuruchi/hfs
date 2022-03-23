@@ -177,5 +177,52 @@ impl<C: controller::Controller> Filesystem for FuseStruct<C> {
     ) {
         self.controller.forget(_ino, _nlookup);
     }
+
+    fn mkdir(
+        &mut self,
+        req: &Request<'_>,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+        reply: ReplyEntry
+    ) {
+        // 親ディレクトリのSGIDがONの場合、子にSGIDを追加
+        // 親のスティッキービットがONの場合、子にスティッキービットを追加
+
+        match self.controller.mkdir(parent, name, mode) {
+            Ok(attr) => reply.entry(&time::Timespec{sec: 1, nsec: 0}, &attr, 0),
+            Err(_) => reply.error(libc::ENOENT)
+        };
+    }
+
+    fn rmdir(
+        &mut self,
+        _req: &Request<'_>,
+        parent: u64,
+        name: &OsStr,
+        reply: ReplyEmpty
+    ) {
+        match self.controller.rmdir(parent, name) {
+            Ok(_) => reply.ok(),
+            Err(_) => reply.error(libc::ENOENT)
+        }
+    }
+
+    fn rename(
+        &mut self,
+        _req: &Request,
+        parent: u64,
+        name: &OsStr,
+        newparent: u64,
+        newname: &OsStr,
+        reply: ReplyEmpty
+    ) {
+        match self.controller.rename(parent, name, newparent, newname) {
+            Ok(_) => reply.ok(),
+            Err(_) => reply.error(libc::ENOENT)
+        }
+    }
+
+
 }
 

@@ -46,6 +46,27 @@ pub trait Controller {
         ino: u64,
         nlookup: u64
     ) -> Result<()>;
+
+    fn mkdir(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+    ) -> Result<fuse::FileAttr>;
+
+    fn rmdir(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+    ) -> Result<()>;
+
+    fn rename (
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        newparent: u64,
+        newname: &OsStr,
+    ) -> Result<()>;
 }
 
 pub fn new<U>(usecase: U) -> impl Controller
@@ -265,6 +286,54 @@ impl<U: usecase::Usecase> Controller for ControllerStruct<U> {
         nlookup: u64,
     ) -> Result<()> {
         self.usecase.forget(ino, nlookup)
+    }
+
+    fn mkdir(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        mode: u32,
+    ) -> Result<fuse::FileAttr> {
+        let attr = self.usecase.mkdir(parent, name, mode)?;
+        let file_type = match attr.file_type() {
+			attr::FileType::Directory => fuse::FileType::Directory,
+			attr::FileType::TextFile => fuse::FileType::RegularFile
+		};
+
+        Ok(fuse::FileAttr{
+            ino: attr.ino(),
+            size: attr.size(),
+            blocks: 0,
+            atime: timespeck(attr.atime()),
+            mtime: timespeck(attr.mtime()),
+            ctime: timespeck(attr.ctime()),
+            crtime: time::now().to_timespec(),
+            kind: file_type,
+            perm: attr.perm(),
+            nlink: attr.nlink(),
+            uid: attr.uid(),
+            gid: attr.gid(),
+            rdev: 0,
+            flags: 0,
+        })
+    }
+
+    fn rmdir(
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+    ) -> Result<()> {
+        self.usecase.rmdir(parent, name)
+    }
+
+    fn rename (
+        &mut self,
+        parent: u64,
+        name: &OsStr,
+        newparent: u64,
+        newname: &OsStr,
+    ) -> Result<()> {
+        self.usecase.rename(parent, name, newparent, newname)
     }
 }
 
