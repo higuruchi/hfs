@@ -820,7 +820,7 @@ impl<F: repository::File> Usecase for UsecaseStruct<F> {
                             lookup_count.delay(move_ino);
                             match self.entry_mut() {
                                 Some(entry) => {
-                                    entry.remove_child_ino(newparent, ino);
+                                    entry.remove_child_ino(newparent, move_ino);
                                     entry.mov(ino, parent, newparent);
                                 },
                                 None => return Err(entity::Error::InternalError.into())
