@@ -99,3 +99,4 @@ $ ./target/debug/hfs --config-path ./tests/config/image.yaml --mountpoint ./moun
 - forget
 - mkdir
 - rmdir
+- rename
